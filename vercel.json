@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/sync/fifa",
+      "schedule": "0 5 * * *"
+    }
+  ]
+}
