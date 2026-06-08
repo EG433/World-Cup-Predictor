@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { createSession, createUser, getSessionCookieOptions, sessionCookieName } from "@/lib/server-auth";
 import { reconcileUserGroupMemberships } from "@/lib/server-groups";
 
+export const runtime = "nodejs";
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {

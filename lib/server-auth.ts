@@ -106,8 +106,9 @@ export async function getPostgresPool() {
       postgresPool = new Pool({
         connectionString: databaseUrl,
       });
-    } catch {
-      throw new Error("Postgres driver is missing. Run `npm install pg @types/pg`.");
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "Unknown Postgres import error.";
+      throw new Error(`Could not load the Postgres driver: ${detail}`);
     }
   }
 
