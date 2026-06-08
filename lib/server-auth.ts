@@ -101,12 +101,8 @@ export async function getPostgresPool() {
   }
 
   if (!postgresPool) {
-    const dynamicImport = new Function("specifier", "return import(specifier)") as (
-      specifier: string,
-    ) => Promise<{ Pool: new (config: { connectionString: string }) => QueryablePool }>;
-
     try {
-      const { Pool } = await dynamicImport("pg");
+      const { Pool } = await import("pg");
       postgresPool = new Pool({
         connectionString: databaseUrl,
       });
