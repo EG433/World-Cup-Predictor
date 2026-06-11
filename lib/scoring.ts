@@ -13,7 +13,7 @@ import {
   PredictionScoringMode,
 } from "@/types/world-cup";
 
-export const predictionDeadline = "2026-06-11T00:00:00Z";
+export const predictionDeadline = "2026-06-16T00:00:00Z";
 export const correctResultPoints = 3;
 export const correctHomeGoalsPoints = 1;
 export const correctAwayGoalsPoints = 1;

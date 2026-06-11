@@ -1075,8 +1075,8 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
           </p>
           <span>
             {preWorldCupLocked
-              ? "Locked after June 11, 2026."
-              : "Due before June 11, 2026."}
+              ? "Locked after June 16, 2026."
+              : "Due before June 16, 2026."}
           </span>
         </button>
 
@@ -1234,7 +1234,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
               Choose one group, type match scores, and watch the ranking update automatically.
             </p>
             {preWorldCupLocked ? (
-              <p className="muted-text">These picks are locked after June 11, 2026.</p>
+              <p className="muted-text">These picks are locked after June 16, 2026.</p>
             ) : null}
           </div>
         </div>
