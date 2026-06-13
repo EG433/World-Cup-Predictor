@@ -103,6 +103,12 @@ export function GroupMembersHub({ groupId, initialPool }: GroupMembersHubProps) 
                   <span>{member.predictionStatus}</span>
                   <strong>{member.points ?? 0} pts</strong>
                 </div>
+                <Link
+                  href={`/groups/${pool.id}/predictions?memberId=${encodeURIComponent(member.id)}`}
+                  className="secondary-button"
+                >
+                  View picks
+                </Link>
               </article>
             );
           })}

@@ -5,6 +5,7 @@ import { getFriendPoolById } from "@/lib/mock-data";
 
 interface PredictionPageProps {
   params: Promise<{ groupId: string }>;
+  searchParams?: Promise<{ memberId?: string }>;
 }
 
 export function generateStaticParams() {
@@ -19,8 +20,9 @@ function groupNameFromId(groupId: string) {
     .join(" ");
 }
 
-export default async function PredictionPage({ params }: PredictionPageProps) {
+export default async function PredictionPage({ params, searchParams }: PredictionPageProps) {
   const { groupId } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const pool = getFriendPoolById(groupId);
   const groupName = pool?.name ?? groupNameFromId(groupId);
   const scoringMode = pool?.scoringMode ?? "traditional";
@@ -31,6 +33,7 @@ export default async function PredictionPage({ params }: PredictionPageProps) {
         groupId={groupId}
         groupName={groupName}
         scoringMode={scoringMode}
+        viewedMemberId={resolvedSearchParams?.memberId}
       />
 
       <div className="page-actions">

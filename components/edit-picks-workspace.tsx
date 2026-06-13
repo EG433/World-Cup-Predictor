@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 import { ScoringRulesPanel } from "@/components/scoring-rules-panel";
 import { TeamBadge } from "@/components/team-badge";
@@ -117,6 +118,7 @@ interface EditPicksWorkspaceProps {
   groupId: string;
   groupName: string;
   scoringMode: PredictionScoringMode;
+  viewedMemberId?: string;
 }
 
 const adviceWeightLabels: Record<keyof AdviceWeights, string> = {
@@ -420,7 +422,12 @@ function computeBracketOutcomesFromPicks(
   return outcomes;
 }
 
-export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPicksWorkspaceProps) {
+export function EditPicksWorkspace({
+  groupId,
+  groupName,
+  scoringMode,
+  viewedMemberId,
+}: EditPicksWorkspaceProps) {
   const storedGroup = readStoredGroups().find((group) => group.id === groupId);
   const activeGroupName = storedGroup?.name ?? groupName;
   const activeScoringMode = storedGroup?.scoringMode ?? scoringMode;
@@ -459,6 +466,8 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
   const [officialKnockoutMatches, setOfficialKnockoutMatches] = useState<OfficialKnockoutMatch[]>(
     fallbackOfficialKnockoutMatches,
   );
+  const [currentUserId, setCurrentUserId] = useState("");
+  const [viewedMemberName, setViewedMemberName] = useState("");
   const computedStandings = useMemo(
     () =>
       Object.fromEntries(
@@ -503,16 +512,20 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
   );
   const preWorldCupDeadlineTime = new Date(predictionDeadline).getTime();
   const preWorldCupLocked = currentTimestamp >= preWorldCupDeadlineTime;
+  const isViewingAnotherMember = Boolean(viewedMemberId && viewedMemberId !== currentUserId);
+  const preWorldCupInteractionLocked = preWorldCupLocked || isViewingAnotherMember;
   const activeModeLocked =
     activeMode === "pre-world-cup"
-      ? preWorldCupLocked
+      ? preWorldCupInteractionLocked
       : false;
   const selectedGroup = tournamentGroups.find((group) => group.id === selectedGroupId) ?? tournamentGroups[0];
   const advisorHomeTeam = getTeamById(advisorHomeTeamId);
   const advisorAwayTeam = getTeamById(advisorAwayTeamId);
   const adviceWeightTotal = Object.values(adviceWeights).reduce((sum, value) => sum + value, 0);
   const saveButtonLabel =
-    activeMode === "pre-world-cup"
+    isViewingAnotherMember
+      ? "Viewing member picks"
+      : activeMode === "pre-world-cup"
       ? preWorldCupLocked
         ? "Pre-World Cup picks are locked"
         : saveStatus === "saving"
@@ -544,9 +557,14 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
       setSaveMessage("");
 
       try {
-        const response = await fetch(`/api/groups/${encodeURIComponent(groupId)}/predictions`, {
-          credentials: "include",
-        });
+        const response = await fetch(
+          `/api/groups/${encodeURIComponent(groupId)}/predictions${
+            viewedMemberId ? `?userId=${encodeURIComponent(viewedMemberId)}` : ""
+          }`,
+          {
+            credentials: "include",
+          },
+        );
 
         if (!response.ok) {
           if (isCurrent) {
@@ -557,9 +575,16 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
 
         const data = (await response.json()) as {
           draft: null | { predictionData?: unknown; updatedAt?: string };
+          currentUserId?: string;
+          viewedMember?: { id: string; username: string };
           officialKnockoutMatches?: OfficialKnockoutMatch[];
         };
         const predictionData = data.draft?.predictionData;
+
+        if (isCurrent) {
+          setCurrentUserId(data.currentUserId ?? "");
+          setViewedMemberName(data.viewedMember?.username ?? "");
+        }
 
         if (isCurrent && isObjectRecord(predictionData)) {
           if (typeof predictionData.selectedGroupId === "string") {
@@ -588,8 +613,8 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
 
           setSaveMessage(
             data.draft?.updatedAt
-              ? `Draft loaded from ${new Date(data.draft.updatedAt).toLocaleString()}.`
-              : "Draft loaded.",
+              ? `${data.viewedMember?.id && data.viewedMember.id !== data.currentUserId ? `${data.viewedMember.username}'s` : "Your"} draft loaded from ${new Date(data.draft.updatedAt).toLocaleString()}.`
+              : `${data.viewedMember?.id && data.viewedMember.id !== data.currentUserId ? `${data.viewedMember.username}'s` : "Your"} draft loaded.`,
           );
         }
 
@@ -616,7 +641,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
     return () => {
       isCurrent = false;
     };
-  }, [fallbackOfficialKnockoutMatches, groupId]);
+  }, [fallbackOfficialKnockoutMatches, groupId, viewedMemberId]);
 
   async function handleSaveDraft() {
     setSaveStatus("saving");
@@ -810,6 +835,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
     const awayTeam = getTeamById(match.awayTeamId ?? "");
     const selectedWinner = getLiveKnockoutSelectedWinner(match);
     const matchLocked = isOfficialKnockoutMatchLocked(match);
+    const interactionLocked = matchLocked || isViewingAnotherMember;
     const actualResultText =
       match.status === "final" &&
       homeTeam &&
@@ -841,7 +867,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
           >
             <button
               type="button"
-              disabled={!homeTeam || matchLocked}
+              disabled={!homeTeam || interactionLocked}
               onClick={() =>
                 homeTeam
                   ? setLiveKnockoutWinners((current) => ({ ...current, [match.id]: homeTeam.id }))
@@ -859,7 +885,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
               type="number"
               min="0"
               inputMode="numeric"
-              disabled={matchLocked}
+              disabled={interactionLocked}
               value={liveKnockoutScores[match.id]?.home ?? ""}
               onChange={(event) =>
                 updateScore(setLiveKnockoutScores, match.id, "home", event.target.value)
@@ -875,7 +901,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
           >
             <button
               type="button"
-              disabled={!awayTeam || matchLocked}
+              disabled={!awayTeam || interactionLocked}
               onClick={() =>
                 awayTeam
                   ? setLiveKnockoutWinners((current) => ({ ...current, [match.id]: awayTeam.id }))
@@ -893,7 +919,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
               type="number"
               min="0"
               inputMode="numeric"
-              disabled={matchLocked}
+              disabled={interactionLocked}
               value={liveKnockoutScores[match.id]?.away ?? ""}
               onChange={(event) =>
                 updateScore(setLiveKnockoutScores, match.id, "away", event.target.value)
@@ -905,7 +931,13 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
 
         <div className="official-knockout-card-footer">
           <span>{`Winner points: ${knockoutPointValues[match.stage] ?? 0}`}</span>
-          {matchLocked ? <span>Locked at kickoff</span> : <span>Editable until kickoff</span>}
+          {isViewingAnotherMember ? (
+            <span>Read-only member view</span>
+          ) : matchLocked ? (
+            <span>Locked at kickoff</span>
+          ) : (
+            <span>Editable until kickoff</span>
+          )}
           {actualResultText ? <span>{actualResultText}</span> : null}
         </div>
       </article>
@@ -994,7 +1026,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
         >
           <button
             type="button"
-            disabled={!homeTeamId || preWorldCupLocked}
+            disabled={!homeTeamId || preWorldCupInteractionLocked}
             onClick={() =>
               homeTeamId
                 ? setBracketWinners((current) => ({ ...current, [match.id]: homeTeamId }))
@@ -1012,7 +1044,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
         >
           <button
             type="button"
-            disabled={!awayTeamId || preWorldCupLocked}
+            disabled={!awayTeamId || preWorldCupInteractionLocked}
             onClick={() =>
               awayTeamId
                 ? setBracketWinners((current) => ({ ...current, [match.id]: awayTeamId }))
@@ -1052,13 +1084,26 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
   return (
     <div className="section-stack">
       <section className="page-intro">
-        <p className="eyebrow">Edit picks</p>
+        <p className="eyebrow">{isViewingAnotherMember ? "Member picks" : "Edit picks"}</p>
         <h1>{activeGroupName}: prediction sheet</h1>
         <p>
-          Choose between locked-in pre-tournament picks and live official knockout picks. Your
-          total score is the sum of both sections.
+          {isViewingAnotherMember
+            ? `Viewing ${viewedMemberName || "this member"}'s saved predictions in read-only mode.`
+            : "Choose between locked-in pre-tournament picks and live official knockout picks. Your total score is the sum of both sections."}
         </p>
       </section>
+
+      {isViewingAnotherMember ? (
+        <section className="helper-banner">
+          <span>
+            You are viewing {viewedMemberName || "this member"}&apos;s picks. Your own predictions will
+            not change.
+          </span>
+          <Link href={`/groups/${groupId}/predictions`} className="secondary-button">
+            Back to my picks
+          </Link>
+        </section>
+      ) : null}
 
       <section className="prediction-mode-selector">
         <button
@@ -1243,7 +1288,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
           <label>
             Select group
             <select
-              disabled={preWorldCupLocked}
+              disabled={preWorldCupInteractionLocked}
               value={selectedGroupId}
               onChange={(event) => setSelectedGroupId(event.target.value)}
             >
@@ -1277,7 +1322,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
                       type="number"
                       min="0"
                       inputMode="numeric"
-                      disabled={preWorldCupLocked}
+                      disabled={preWorldCupInteractionLocked}
                       value={groupScores[match.id]?.home ?? ""}
                       onChange={(event) =>
                         updateScore(setGroupScores, match.id, "home", event.target.value)
@@ -1289,7 +1334,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
                       type="number"
                       min="0"
                       inputMode="numeric"
-                      disabled={preWorldCupLocked}
+                      disabled={preWorldCupInteractionLocked}
                       value={groupScores[match.id]?.away ?? ""}
                       onChange={(event) =>
                         updateScore(setGroupScores, match.id, "away", event.target.value)
@@ -1491,7 +1536,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
                     >
                       <button
                         type="button"
-                        disabled={!homeTeamId || preWorldCupLocked}
+                        disabled={!homeTeamId || preWorldCupInteractionLocked}
                         onClick={() =>
                           homeTeamId
                             ? setBracketWinners((current) => ({ ...current, [match.id]: homeTeamId }))
@@ -1524,7 +1569,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
                         type="number"
                         min="0"
                         inputMode="numeric"
-                        disabled={preWorldCupLocked}
+                        disabled={preWorldCupInteractionLocked}
                         value={bracketScores[match.id]?.home ?? ""}
                         onChange={(event) =>
                           updateScore(setBracketScores, match.id, "home", event.target.value)
@@ -1539,7 +1584,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
                     >
                       <button
                         type="button"
-                        disabled={!awayTeamId || preWorldCupLocked}
+                        disabled={!awayTeamId || preWorldCupInteractionLocked}
                         onClick={() =>
                           awayTeamId
                             ? setBracketWinners((current) => ({ ...current, [match.id]: awayTeamId }))
@@ -1572,7 +1617,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
                         type="number"
                         min="0"
                         inputMode="numeric"
-                        disabled={preWorldCupLocked}
+                        disabled={preWorldCupInteractionLocked}
                         value={bracketScores[match.id]?.away ?? ""}
                         onChange={(event) =>
                           updateScore(setBracketScores, match.id, "away", event.target.value)
@@ -1674,14 +1719,16 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
       ) : null}
 
       <div className="page-actions prediction-save-actions">
-        <button
-          type="button"
-          className="primary-button"
-          onClick={handleSaveDraft}
-          disabled={saveStatus === "loading" || saveStatus === "saving" || activeModeLocked}
-        >
-          {saveButtonLabel}
-        </button>
+        {!isViewingAnotherMember ? (
+          <button
+            type="button"
+            className="primary-button"
+            onClick={handleSaveDraft}
+            disabled={saveStatus === "loading" || saveStatus === "saving" || activeModeLocked}
+          >
+            {saveButtonLabel}
+          </button>
+        ) : null}
         {saveMessage ? (
           <p className={saveStatus === "error" ? "form-error" : "form-success"}>{saveMessage}</p>
         ) : null}

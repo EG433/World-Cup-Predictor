@@ -10,6 +10,11 @@ interface PredictionRouteProps {
   params: Promise<{ groupId: string }>;
 }
 
+type GroupMemberRow = {
+  user_id: string;
+  username: string;
+};
+
 async function getSignedInUser() {
   const cookieStore = await cookies();
   return getUserFromSession(cookieStore.get(sessionCookieName)?.value);
@@ -83,7 +88,40 @@ function mergeMatchScopedValues(
   return merged;
 }
 
-export async function GET(_request: Request, { params }: PredictionRouteProps) {
+async function requireGroupMember(pool: Awaited<ReturnType<typeof ensurePredictionDraftsTable>>, routeGroupId: string, userId: string) {
+  const membership = await pool.query(
+    `select 1
+    from prediction_groups
+    inner join group_members on group_members.group_id = prediction_groups.id
+    where prediction_groups.route_group_id = $1
+      and group_members.user_id = $2
+    limit 1`,
+    [routeGroupId, userId],
+  );
+
+  return membership.rows.length > 0;
+}
+
+async function getGroupMember(
+  pool: Awaited<ReturnType<typeof ensurePredictionDraftsTable>>,
+  routeGroupId: string,
+  userId: string,
+) {
+  const memberResult = await pool.query<GroupMemberRow>(
+    `select app_users.id as user_id, app_users.username
+    from prediction_groups
+    inner join group_members on group_members.group_id = prediction_groups.id
+    inner join app_users on app_users.id = group_members.user_id
+    where prediction_groups.route_group_id = $1
+      and app_users.id = $2
+    limit 1`,
+    [routeGroupId, userId],
+  );
+
+  return memberResult.rows[0] ?? null;
+}
+
+export async function GET(request: Request, { params }: PredictionRouteProps) {
   try {
     const user = await getSignedInUser();
 
@@ -93,6 +131,20 @@ export async function GET(_request: Request, { params }: PredictionRouteProps) {
 
     const { groupId } = await params;
     const pool = await ensurePredictionDraftsTable();
+    const isMember = await requireGroupMember(pool, groupId, user.id);
+
+    if (!isMember) {
+      return NextResponse.json({ error: "Join this group to view predictions." }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const requestedUserId = searchParams.get("userId")?.trim() || user.id;
+    const viewedMember = await getGroupMember(pool, groupId, requestedUserId);
+
+    if (!viewedMember) {
+      return NextResponse.json({ error: "That member was not found in this group." }, { status: 404 });
+    }
+
     await refreshOfficialResultsIfStale({ minimumMinutesBetweenChecks: 0 });
     const officialKnockoutSeedMatches = matches.filter(
       (match) => match.stage !== "Group Stage" && match.stage !== "Third Place",
@@ -104,7 +156,7 @@ export async function GET(_request: Request, { params }: PredictionRouteProps) {
       `select prediction_data, updated_at
       from prediction_drafts
       where route_group_id = $1 and user_id = $2`,
-      [groupId, user.id],
+      [groupId, viewedMember.user_id],
     );
     const officialResults = await pool.query<{
       match_id: string;
@@ -142,6 +194,11 @@ export async function GET(_request: Request, { params }: PredictionRouteProps) {
             updatedAt: result.rows[0].updated_at,
           }
         : null,
+      currentUserId: user.id,
+      viewedMember: {
+        id: viewedMember.user_id,
+        username: viewedMember.username,
+      },
       officialKnockoutMatches: officialKnockoutSeedMatches.map((match) => {
         const officialResult = officialResultsById.get(match.id);
 
@@ -189,6 +246,12 @@ export async function PUT(request: Request, { params }: PredictionRouteProps) {
 
     const { groupId } = await params;
     const pool = await ensurePredictionDraftsTable();
+    const isMember = await requireGroupMember(pool, groupId, user.id);
+
+    if (!isMember) {
+      return NextResponse.json({ error: "Join this group to save predictions." }, { status: 403 });
+    }
+
     const existingDraftResult = await pool.query<{ prediction_data: unknown }>(
       `select prediction_data
       from prediction_drafts
