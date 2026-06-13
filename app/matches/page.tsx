@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 async function loadOfficialResults() {
   try {
-    await refreshOfficialResultsIfStale({ minimumMinutesBetweenChecks: 10 });
+    await refreshOfficialResultsIfStale({ minimumMinutesBetweenChecks: 0 });
     const pool = await ensureGroupDatabase();
     const result = await pool.query<OfficialMatchResultRow>("select * from match_results");
 
