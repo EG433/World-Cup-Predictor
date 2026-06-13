@@ -31,7 +31,7 @@ type NormalizedMatchResult = {
 
 type SyncProvider = {
   name: string;
-  sourceUrl: string;
+  getSourceUrls: () => string[];
   parser: (payload: unknown) => NormalizedMatchResult[];
 };
 
@@ -215,27 +215,69 @@ function parseEspnScoreboardPayload(payload: unknown) {
     .filter((result): result is NormalizedMatchResult => Boolean(result));
 }
 
+function formatEtDate(date: Date) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
+  const month = parts.find((part) => part.type === "month")?.value ?? "00";
+  const day = parts.find((part) => part.type === "day")?.value ?? "00";
+
+  return `${year}-${month}-${day}`;
+}
+
+function getScheduleDatesThroughToday() {
+  const todayEt = formatEtDate(new Date());
+
+  return Array.from(
+    new Set(
+      matches
+        .map((match) => match.kickoff.slice(0, 10))
+        .filter((matchDate) => matchDate <= todayEt),
+    ),
+  ).sort();
+}
+
+function toEspnDateParam(date: string) {
+  return date.replace(/-/g, "");
+}
+
+function getEspnScoreboardUrls() {
+  const baseUrl = process.env.ESPN_SCOREBOARD_URL || espnWorldCupScoreboardSource;
+  const dates = getScheduleDatesThroughToday();
+
+  if (dates.length === 0) {
+    return [baseUrl];
+  }
+
+  return dates.map((date) => `${baseUrl}?dates=${toEspnDateParam(date)}`);
+}
+
 function getSyncProviders(): SyncProvider[] {
   return [
     ...(process.env.FIFA_RESULTS_JSON_URL
       ? [
           {
             name: "fifa-json",
-            sourceUrl: process.env.FIFA_RESULTS_JSON_URL,
+            getSourceUrls: () => [process.env.FIFA_RESULTS_JSON_URL as string],
             parser: parseConfiguredJsonPayload,
           },
         ]
       : []),
     {
       name: "espn",
-      sourceUrl: process.env.ESPN_SCOREBOARD_URL || espnWorldCupScoreboardSource,
+      getSourceUrls: getEspnScoreboardUrls,
       parser: parseEspnScoreboardPayload,
     },
     ...(process.env.EXTRA_RESULTS_JSON_URL
       ? [
           {
             name: "extra-json",
-            sourceUrl: process.env.EXTRA_RESULTS_JSON_URL,
+            getSourceUrls: () => [process.env.EXTRA_RESULTS_JSON_URL as string],
             parser: parseConfiguredJsonPayload,
           },
         ]
@@ -293,48 +335,80 @@ export async function syncOfficialFifaData() {
   const pool = await getPostgresPool();
   const providers = getSyncProviders();
   const attemptedSources: string[] = [];
+  const providerMessages: string[] = [];
+  let totalImportedCount = 0;
+  let importedAnyData = false;
 
   for (const provider of providers) {
-    attemptedSources.push(`${provider.name}: ${provider.sourceUrl}`);
+    const sourceUrls = provider.getSourceUrls();
+    const providerResults = new Map<string, NormalizedMatchResult>();
+    const providerErrors: string[] = [];
 
-    try {
-      const response = await fetch(provider.sourceUrl, {
-        headers: {
-          Accept: "application/json",
-        },
-      });
+    for (const sourceUrl of sourceUrls) {
+      attemptedSources.push(`${provider.name}: ${sourceUrl}`);
 
-      if (!response.ok) {
-        throw new Error(`${provider.name} responded with ${response.status}.`);
+      try {
+        const response = await fetch(sourceUrl, {
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`${provider.name} responded with ${response.status}.`);
+        }
+
+        const payload = await response.json();
+        const results = provider.parser(payload);
+
+        for (const result of results) {
+          providerResults.set(result.matchId, result);
+        }
+      } catch (error) {
+        providerErrors.push(error instanceof Error ? error.message : `Could not sync ${provider.name}.`);
       }
+    }
 
-      const payload = await response.json();
-      const results = provider.parser(payload);
-      const importedCount = await importResults(results, provider.name);
-      const message = `Imported ${importedCount} match result updates from ${provider.name}.`;
+    if (providerResults.size > 0) {
+      const importedCount = await importResults(Array.from(providerResults.values()), provider.name);
+      importedAnyData = true;
+      totalImportedCount += importedCount;
+      providerMessages.push(`${provider.name}: ${importedCount} matches`);
 
       await pool.query(
         `insert into fifa_sync_runs (source_url, status, message)
         values ($1, $2, $3)`,
-        [provider.sourceUrl, importedCount > 0 ? "imported" : "checked", message],
+        [
+          sourceUrls[0] ?? provider.name,
+          importedCount > 0 ? "imported" : "checked",
+          `Imported ${importedCount} match result updates from ${provider.name}.`,
+        ],
       );
+    }
 
-      return {
-        importedCount,
-        sourceUrl: provider.sourceUrl,
-        provider: provider.name,
-        attemptedSources,
-        scheduleSource: fifaScheduleSource,
-        message,
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : `Could not sync ${provider.name}.`;
+    if (providerErrors.length > 0 && providerResults.size === 0) {
+      const message = providerErrors.join(" | ");
       await pool.query(
         `insert into fifa_sync_runs (source_url, status, message)
         values ($1, 'error', $2)`,
-        [provider.sourceUrl, message],
+        [sourceUrls[0] ?? provider.name, message],
       );
     }
+  }
+
+  if (importedAnyData) {
+    const message = `Imported ${totalImportedCount} total match result updates. ${providerMessages.join(
+      " | ",
+    )}`;
+
+    return {
+      importedCount: totalImportedCount,
+      sourceUrl: attemptedSources[0] ?? fifaScoresFixturesSource,
+      provider: providers.map((provider) => provider.name).join(", "),
+      attemptedSources,
+      scheduleSource: fifaScheduleSource,
+      message,
+    };
   }
 
   const fallbackMessage = `No configured results provider returned importable data. Attempted: ${attemptedSources.join(
