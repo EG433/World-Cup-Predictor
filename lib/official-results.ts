@@ -65,7 +65,7 @@ export function computeOfficialStandingsByGroup(resultRows: OfficialMatchResultR
       for (const match of getMatchesForGroup(group.id)) {
         const result = resultsById.get(match.id);
 
-        if (!match.homeTeamId || !match.awayTeamId || !isFinalScoreAvailable(result)) {
+        if (!match.homeTeamId || !match.awayTeamId || !result || !isFinalScoreAvailable(result)) {
           continue;
         }
 
