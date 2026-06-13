@@ -31,8 +31,15 @@ type NormalizedMatchResult = {
 
 type SyncProvider = {
   name: string;
+  priority: number;
   getSourceUrls: () => string[];
   parser: (payload: unknown) => NormalizedMatchResult[];
+};
+
+type ProviderResult = {
+  providerName: string;
+  providerPriority: number;
+  result: NormalizedMatchResult;
 };
 
 type EspnCompetitor = {
@@ -257,12 +264,69 @@ function getEspnScoreboardUrls() {
   return dates.map((date) => `${baseUrl}?dates=${toEspnDateParam(date)}`);
 }
 
+function getStatusRank(status: NormalizedMatchResult["status"]) {
+  if (status === "final") return 3;
+  if (status === "live") return 2;
+  return 1;
+}
+
+function getResultCompleteness(result: NormalizedMatchResult) {
+  const hasTeams = Boolean(result.homeTeamId && result.awayTeamId);
+  const hasScores =
+    typeof result.homeScore === "number" &&
+    typeof result.awayScore === "number";
+  const hasWinner = Boolean(result.winnerTeamId);
+
+  return Number(hasTeams) + Number(hasScores) + Number(hasWinner);
+}
+
+function getTimestampValue(value: string | null) {
+  if (!value) return 0;
+
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function choosePreferredResult(current: ProviderResult | undefined, incoming: ProviderResult) {
+  if (!current) {
+    return incoming;
+  }
+
+  const currentStatusRank = getStatusRank(current.result.status);
+  const incomingStatusRank = getStatusRank(incoming.result.status);
+
+  if (incomingStatusRank !== currentStatusRank) {
+    return incomingStatusRank > currentStatusRank ? incoming : current;
+  }
+
+  const currentCompleteness = getResultCompleteness(current.result);
+  const incomingCompleteness = getResultCompleteness(incoming.result);
+
+  if (incomingCompleteness !== currentCompleteness) {
+    return incomingCompleteness > currentCompleteness ? incoming : current;
+  }
+
+  if (incoming.providerPriority !== current.providerPriority) {
+    return incoming.providerPriority > current.providerPriority ? incoming : current;
+  }
+
+  const currentUpdatedAt = getTimestampValue(current.result.sourceUpdatedAt);
+  const incomingUpdatedAt = getTimestampValue(incoming.result.sourceUpdatedAt);
+
+  if (incomingUpdatedAt !== currentUpdatedAt) {
+    return incomingUpdatedAt > currentUpdatedAt ? incoming : current;
+  }
+
+  return current;
+}
+
 function getSyncProviders(): SyncProvider[] {
   return [
     ...(process.env.FIFA_RESULTS_JSON_URL
       ? [
           {
             name: "fifa-json",
+            priority: 300,
             getSourceUrls: () => [process.env.FIFA_RESULTS_JSON_URL as string],
             parser: parseConfiguredJsonPayload,
           },
@@ -270,6 +334,7 @@ function getSyncProviders(): SyncProvider[] {
       : []),
     {
       name: "espn",
+      priority: 200,
       getSourceUrls: getEspnScoreboardUrls,
       parser: parseEspnScoreboardPayload,
     },
@@ -277,6 +342,7 @@ function getSyncProviders(): SyncProvider[] {
       ? [
           {
             name: "extra-json",
+            priority: 100,
             getSourceUrls: () => [process.env.EXTRA_RESULTS_JSON_URL as string],
             parser: parseConfiguredJsonPayload,
           },
@@ -336,8 +402,7 @@ export async function syncOfficialFifaData() {
   const providers = getSyncProviders();
   const attemptedSources: string[] = [];
   const providerMessages: string[] = [];
-  let totalImportedCount = 0;
-  let importedAnyData = false;
+  const bestResults = new Map<string, ProviderResult>();
 
   for (const provider of providers) {
     const sourceUrls = provider.getSourceUrls();
@@ -363,6 +428,14 @@ export async function syncOfficialFifaData() {
 
         for (const result of results) {
           providerResults.set(result.matchId, result);
+          bestResults.set(
+            result.matchId,
+            choosePreferredResult(bestResults.get(result.matchId), {
+              providerName: provider.name,
+              providerPriority: provider.priority,
+              result,
+            }),
+          );
         }
       } catch (error) {
         providerErrors.push(error instanceof Error ? error.message : `Could not sync ${provider.name}.`);
@@ -370,18 +443,15 @@ export async function syncOfficialFifaData() {
     }
 
     if (providerResults.size > 0) {
-      const importedCount = await importResults(Array.from(providerResults.values()), provider.name);
-      importedAnyData = true;
-      totalImportedCount += importedCount;
-      providerMessages.push(`${provider.name}: ${importedCount} matches`);
+      providerMessages.push(`${provider.name}: ${providerResults.size} matches`);
 
       await pool.query(
         `insert into fifa_sync_runs (source_url, status, message)
         values ($1, $2, $3)`,
         [
           sourceUrls[0] ?? provider.name,
-          importedCount > 0 ? "imported" : "checked",
-          `Imported ${importedCount} match result updates from ${provider.name}.`,
+          "checked",
+          `Fetched ${providerResults.size} match result updates from ${provider.name}.`,
         ],
       );
     }
@@ -396,13 +466,17 @@ export async function syncOfficialFifaData() {
     }
   }
 
-  if (importedAnyData) {
-    const message = `Imported ${totalImportedCount} total match result updates. ${providerMessages.join(
+  if (bestResults.size > 0) {
+    const importedCount = await importResults(
+      Array.from(bestResults.values()).map((entry) => entry.result),
+      "multi-source",
+    );
+    const message = `Imported ${importedCount} total match result updates. ${providerMessages.join(
       " | ",
     )}`;
 
     return {
-      importedCount: totalImportedCount,
+      importedCount,
       sourceUrl: attemptedSources[0] ?? fifaScoresFixturesSource,
       provider: providers.map((provider) => provider.name).join(", "),
       attemptedSources,
