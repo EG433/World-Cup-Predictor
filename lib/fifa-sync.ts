@@ -100,6 +100,21 @@ function teamIdFromProviderTeam(team?: EspnCompetitor["team"]) {
   return teams.find((entry) => providerNames.includes(normalizeName(entry.name)))?.id;
 }
 
+function formatDateInTimeZone(date: Date, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
+  const month = parts.find((part) => part.type === "month")?.value ?? "00";
+  const day = parts.find((part) => part.type === "day")?.value ?? "00";
+
+  return `${year}-${month}-${day}`;
+}
+
 function matchIdForTeams({
   homeTeamId,
   awayTeamId,
@@ -113,7 +128,7 @@ function matchIdForTeams({
     return undefined;
   }
 
-  const eventDay = eventDate?.slice(0, 10);
+  const eventDay = eventDate ? formatDateInTimeZone(new Date(eventDate), "America/New_York") : undefined;
   const possibleMatches = matches.filter((match) => {
     const sameTeams =
       (match.homeTeamId === homeTeamId && match.awayTeamId === awayTeamId) ||
@@ -223,18 +238,7 @@ function parseEspnScoreboardPayload(payload: unknown) {
 }
 
 function formatEtDate(date: Date) {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/New_York",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  const parts = formatter.formatToParts(date);
-  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
-  const month = parts.find((part) => part.type === "month")?.value ?? "00";
-  const day = parts.find((part) => part.type === "day")?.value ?? "00";
-
-  return `${year}-${month}-${day}`;
+  return formatDateInTimeZone(date, "America/New_York");
 }
 
 function getScheduleDatesThroughToday() {
