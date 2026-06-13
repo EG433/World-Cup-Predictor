@@ -107,10 +107,20 @@ export function GroupLobby() {
       void loadGroupPageData();
     }
 
+    function handleWindowFocus() {
+      void loadGroupPageData();
+    }
+
     window.addEventListener("auth-change", handleAuthChange);
+    window.addEventListener("focus", handleWindowFocus);
+    const refreshInterval = window.setInterval(() => {
+      void loadGroupPageData();
+    }, 5 * 60 * 1000);
 
     return () => {
       window.removeEventListener("auth-change", handleAuthChange);
+      window.removeEventListener("focus", handleWindowFocus);
+      window.clearInterval(refreshInterval);
     };
   }, []);
 

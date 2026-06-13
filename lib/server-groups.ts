@@ -204,11 +204,15 @@ export async function ensureGroupDatabase() {
   return pool;
 }
 
-export async function refreshOfficialResultsIfStale() {
+export async function refreshOfficialResultsIfStale({
+  minimumMinutesBetweenChecks = 10,
+}: {
+  minimumMinutesBetweenChecks?: number;
+} = {}) {
   await ensureGroupDatabase();
 
   try {
-    await syncOfficialFifaDataIfStale({ minimumMinutesBetweenChecks: 24 * 60 });
+    await syncOfficialFifaDataIfStale({ minimumMinutesBetweenChecks });
   } catch {
     // Keep prediction pages usable even when the live score provider is temporarily unavailable.
   }

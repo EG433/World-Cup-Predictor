@@ -10,11 +10,19 @@ export function MatchCard({ match }: MatchCardProps) {
   const homeTeam = match.homeTeamId ? getTeamById(match.homeTeamId) : undefined;
   const awayTeam = match.awayTeamId ? getTeamById(match.awayTeamId) : undefined;
   const kickoffLabel = formatKickoff(match.kickoff);
+  const hasOfficialScore =
+    typeof match.homeScore === "number" && typeof match.awayScore === "number";
+  const statusLabel =
+    match.status === "final" ? "Final" : match.status === "live" ? "Live" : "Scheduled";
 
   return (
     <article className="match-card">
       <div className="match-card-topline">
         <span className="match-stage-pill">{match.stage}</span>
+        <span className={`match-status-chip is-${match.status ?? "scheduled"}`}>{statusLabel}</span>
+      </div>
+
+      <div className="match-card-subline">
         <span>{match.matchdayLabel}</span>
       </div>
 
@@ -29,7 +37,9 @@ export function MatchCard({ match }: MatchCardProps) {
           )}
           {homeTeam ? <p className="team-meta">{homeTeam.code}</p> : null}
         </div>
-        <span className="versus-pill">vs</span>
+        <span className={`versus-pill ${hasOfficialScore ? "has-score" : ""}`}>
+          {hasOfficialScore ? `${match.homeScore}-${match.awayScore}` : "vs"}
+        </span>
         <div className="match-team-block align-right">
           {awayTeam ? (
             <p className="team-name">

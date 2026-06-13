@@ -7,6 +7,8 @@ export type MatchStage =
   | "Third Place"
   | "Final";
 
+export type MatchStatus = "scheduled" | "live" | "final";
+
 export type Confederation =
   | "AFC"
   | "CAF"
@@ -43,6 +45,11 @@ export interface Match {
   homeSlotLabel?: string;
   awaySlotLabel?: string;
   groupId?: string;
+  status?: MatchStatus;
+  homeScore?: number | null;
+  awayScore?: number | null;
+  winnerTeamId?: string | null;
+  sourceUpdatedAt?: string | null;
 }
 
 export interface GroupStanding {

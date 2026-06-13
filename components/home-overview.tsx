@@ -39,16 +39,22 @@ export function HomeOverview() {
 
     window.addEventListener("auth-change", handleAuthChange);
     window.addEventListener("focus", handleWindowFocus);
+    const refreshInterval = window.setInterval(() => {
+      void loadHomeData();
+    }, 5 * 60 * 1000);
 
     return () => {
       window.removeEventListener("auth-change", handleAuthChange);
       window.removeEventListener("focus", handleWindowFocus);
+      window.clearInterval(refreshInterval);
     };
   }, []);
 
   const visibleGroups = groups.slice(0, 3);
   const totalMembers = groups.reduce((memberCount, group) => memberCount + group.members.length, 0);
   const openingMatch = matches[0];
+  const knockoutMatches = matches.filter((match) => match.stage !== "Group Stage").length;
+  const hostCities = new Set(matches.map((match) => match.city)).size;
   const heroName =
     user && user.username.length > 14 ? `${user.username.slice(0, 14)}...` : user?.username;
 
@@ -59,13 +65,27 @@ export function HomeOverview() {
           <p className="eyebrow">World Cup 2026 predictor</p>
           <h1>
             {heroName
-              ? `${heroName}, build your perfect bracket.`
-              : "Predict the World Cup with your friends."}
+              ? `${heroName}, run your own matchday story.`
+              : "Build your own World Cup matchday story."}
           </h1>
           <p>
-            Make picks, follow the official schedule, join friend groups, and watch the leaderboard
-            turn every matchday into a tiny emotional roller coaster.
+            Set your picks, track every kickoff, stack your friend groups, and turn the 2026 World
+            Cup into a proper tournament-night ritual.
           </p>
+          <div className="home-hero-meta" aria-label="Tournament atmosphere highlights">
+            <div>
+              <span>Teams</span>
+              <strong>48</strong>
+            </div>
+            <div>
+              <span>Knockout nights</span>
+              <strong>{knockoutMatches}</strong>
+            </div>
+            <div>
+              <span>Host cities</span>
+              <strong>{hostCities}</strong>
+            </div>
+          </div>
           <div className="hero-actions">
             <Link href="/groups" className="primary-button">
               Open my groups
@@ -77,10 +97,14 @@ export function HomeOverview() {
         </div>
 
         <div className="home-spotlight-card">
-          <span className="home-card-kicker">Opening fixture</span>
+          <span className="home-card-kicker">Matchday spotlight</span>
           <strong>{openingMatch?.matchdayLabel ?? "Match 1"}</strong>
           <p>{openingMatch ? "Mexico vs South Africa" : "Schedule loading"}</p>
           <small>{openingMatch ? formatKickoff(openingMatch.kickoff) : "World Cup 2026"}</small>
+          <div className="home-spotlight-meta">
+            <span>{openingMatch?.venue ?? "Opening venue"}</span>
+            <span>{openingMatch?.city ?? "Host city"}</span>
+          </div>
         </div>
       </section>
 
@@ -98,12 +122,12 @@ export function HomeOverview() {
         <article className="home-metric-card">
           <span>Friends in pools</span>
           <strong>{isLoading ? "..." : totalMembers}</strong>
-          <p>Leaderboard rivals across your groups.</p>
+          <p>Supporters, rivals, and bragging-rights traffic.</p>
         </article>
         <article className="home-metric-card">
-          <span>Tournament board</span>
+          <span>Tournament map</span>
           <strong>{matches.length}</strong>
-          <p>{tournamentGroups.length} groups plus the knockout bracket.</p>
+          <p>{tournamentGroups.length} groups and one long road to the final.</p>
         </article>
       </section>
 
@@ -112,7 +136,7 @@ export function HomeOverview() {
           <div className="home-panel-header">
             <div>
               <p className="eyebrow">My rooms</p>
-              <h2>Prediction groups</h2>
+              <h2>Supporters&apos; rooms</h2>
             </div>
             <Link href="/groups" className="inline-link">
               View all
@@ -163,22 +187,22 @@ export function HomeOverview() {
 
         <article className="home-panel home-next-panel">
           <p className="eyebrow">Next moves</p>
-          <h2>Make the pool feel alive.</h2>
+          <h2>Keep the tournament buzzing.</h2>
           <div className="home-action-list">
             <Link href="/matches">
               <span>01</span>
-              <strong>Review the schedule</strong>
-              <small>Browse fixtures by day and see the knockout path.</small>
+              <strong>Scan the fixture board</strong>
+              <small>Move by matchday and see how the bracket opens up.</small>
             </Link>
             <Link href="/groups">
               <span>02</span>
-              <strong>Invite or join friends</strong>
-              <small>Keep everyone in the same group leaderboard.</small>
+              <strong>Bring in your rivals</strong>
+              <small>Keep your whole friend circle inside one live table.</small>
             </Link>
             <Link href={visibleGroups[0] ? `/groups/${visibleGroups[0].id}/predictions` : "/groups"}>
               <span>03</span>
-              <strong>Update your picks</strong>
-              <small>Save your group scores and bracket choices.</small>
+              <strong>Lock your scoreline calls</strong>
+              <small>Save your groups, rankings, and knockout route.</small>
             </Link>
           </div>
         </article>
