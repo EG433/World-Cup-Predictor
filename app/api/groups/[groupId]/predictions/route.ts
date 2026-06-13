@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { matches } from "@/lib/mock-data";
 import { predictionDeadline } from "@/lib/scoring";
 import { getPostgresPool, getUserFromSession, sessionCookieName } from "@/lib/server-auth";
+import { refreshOfficialResultsIfStale } from "@/lib/server-groups";
 
 interface PredictionRouteProps {
   params: Promise<{ groupId: string }>;
@@ -92,6 +93,7 @@ export async function GET(_request: Request, { params }: PredictionRouteProps) {
 
     const { groupId } = await params;
     const pool = await ensurePredictionDraftsTable();
+    await refreshOfficialResultsIfStale({ minimumMinutesBetweenChecks: 10 });
     const officialKnockoutSeedMatches = matches.filter(
       (match) => match.stage !== "Group Stage" && match.stage !== "Third Place",
     );

@@ -32,6 +32,20 @@ export function GroupMembersHub({ groupId, initialPool }: GroupMembersHubProps) 
     }
 
     void loadGroupMembers();
+
+    function handleWindowFocus() {
+      void loadGroupMembers();
+    }
+
+    window.addEventListener("focus", handleWindowFocus);
+    const refreshInterval = window.setInterval(() => {
+      void loadGroupMembers();
+    }, 5 * 60 * 1000);
+
+    return () => {
+      window.removeEventListener("focus", handleWindowFocus);
+      window.clearInterval(refreshInterval);
+    };
   }, [groupId]);
 
   const pool = databasePool ?? initialPool;
