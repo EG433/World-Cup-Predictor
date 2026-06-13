@@ -93,7 +93,7 @@ export async function GET(_request: Request, { params }: PredictionRouteProps) {
 
     const { groupId } = await params;
     const pool = await ensurePredictionDraftsTable();
-    await refreshOfficialResultsIfStale({ minimumMinutesBetweenChecks: 10 });
+    await refreshOfficialResultsIfStale({ minimumMinutesBetweenChecks: 0 });
     const officialKnockoutSeedMatches = matches.filter(
       (match) => match.stage !== "Group Stage" && match.stage !== "Third Place",
     );

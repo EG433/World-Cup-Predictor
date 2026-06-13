@@ -205,7 +205,7 @@ export async function ensureGroupDatabase() {
 }
 
 export async function refreshOfficialResultsIfStale({
-  minimumMinutesBetweenChecks = 10,
+  minimumMinutesBetweenChecks = 0,
 }: {
   minimumMinutesBetweenChecks?: number;
 } = {}) {

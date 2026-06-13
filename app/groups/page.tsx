@@ -6,15 +6,15 @@ export default function GroupsPage() {
       <section className="groups-hero">
         <div>
           <p className="eyebrow">Prediction groups</p>
-          <h1>Your World Cup command room.</h1>
+          <h1>Build your own supporters&apos; section.</h1>
           <p>
-            Create a private pool, invite friends, save picks, and follow the leaderboard from one
-            clean lobby.
+            Create a pool, rally your friends, lock picks, and keep the whole rivalry table inside
+            one match-ready lobby.
           </p>
         </div>
         <div className="groups-hero-card" aria-label="Group page highlights">
-          <span>2026 pool hub</span>
-          <strong>Groups, picks, members, scores.</strong>
+          <span>2026 pool atmosphere</span>
+          <strong>Rivalries, leaderboards, and pick-night chaos.</strong>
         </div>
       </section>
 
