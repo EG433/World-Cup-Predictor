@@ -3641,13 +3641,17 @@ p {
     grid-template-rows: repeat(64, 24px);
   }
 
+  .prediction-bracket-tree {
+    grid-template-rows: repeat(64, 34px);
+  }
+
   .bracket-match-node,
   .prediction-bracket-node {
     min-height: 48px;
   }
 
   .prediction-bracket-node {
-    min-height: 88px;
+    min-height: 118px;
   }
 
   .bracket-match-node.has-left-connector::before,
@@ -3675,21 +3679,21 @@ p {
 
   .prediction-bracket-match-meta {
     font-size: 0.62rem;
+    padding-bottom: 0.45rem;
   }
 
   .prediction-bracket-slot {
     grid-template-columns: minmax(0, 1fr) 2.65rem;
-    min-height: 28px;
+    min-height: 38px;
   }
 
   .prediction-bracket-match-meta {
     gap: 0.18rem;
-    padding-bottom: 0.35rem;
   }
 
   .prediction-bracket-slot button {
-    padding-top: 0.28rem;
-    padding-bottom: 0.28rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
   }
 
   .page-shell {
@@ -4185,6 +4189,10 @@ p {
     grid-template-rows: repeat(64, 22px);
   }
 
+  .prediction-bracket-tree {
+    grid-template-rows: repeat(64, 32px);
+  }
+
   .bracket-match-node.has-left-connector::before,
   .bracket-match-node.has-right-connector::after,
   .prediction-bracket-node.has-left-connector::before,
@@ -4203,22 +4211,22 @@ p {
   }
 
   .prediction-bracket-node {
-    min-height: 82px;
+    min-height: 112px;
   }
 
   .prediction-bracket-slot {
     grid-template-columns: minmax(0, 1fr) 2.35rem;
-    min-height: 26px;
+    min-height: 36px;
   }
 
   .prediction-bracket-match-meta {
     gap: 0.18rem;
-    padding-bottom: 0.32rem;
+    padding-bottom: 0.42rem;
   }
 
   .prediction-bracket-slot button {
-    padding-top: 0.24rem;
-    padding-bottom: 0.24rem;
+    padding-top: 0.46rem;
+    padding-bottom: 0.46rem;
   }
 
   .prediction-bracket-connector::before {
