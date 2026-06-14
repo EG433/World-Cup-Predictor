@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import Link from "next/link";
 
 import { ScoringRulesPanel } from "@/components/scoring-rules-panel";
 import { TeamBadge } from "@/components/team-badge";
@@ -117,6 +118,7 @@ interface EditPicksWorkspaceProps {
   groupId: string;
   groupName: string;
   scoringMode: PredictionScoringMode;
+  viewedMemberId?: string;
 }
 
 const adviceWeightLabels: Record<keyof AdviceWeights, string> = {
@@ -420,7 +422,12 @@ function computeBracketOutcomesFromPicks(
   return outcomes;
 }
 
-export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPicksWorkspaceProps) {
+export function EditPicksWorkspace({
+  groupId,
+  groupName,
+  scoringMode,
+  viewedMemberId,
+}: EditPicksWorkspaceProps) {
   const storedGroup = readStoredGroups().find((group) => group.id === groupId);
   const activeGroupName = storedGroup?.name ?? groupName;
   const activeScoringMode = storedGroup?.scoringMode ?? scoringMode;
@@ -459,6 +466,8 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
   const [officialKnockoutMatches, setOfficialKnockoutMatches] = useState<OfficialKnockoutMatch[]>(
     fallbackOfficialKnockoutMatches,
   );
+  const [currentUserId, setCurrentUserId] = useState("");
+  const [viewedMemberName, setViewedMemberName] = useState("");
   const computedStandings = useMemo(
     () =>
       Object.fromEntries(
@@ -503,16 +512,20 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
   );
   const preWorldCupDeadlineTime = new Date(predictionDeadline).getTime();
   const preWorldCupLocked = currentTimestamp >= preWorldCupDeadlineTime;
+  const isViewingAnotherMember = Boolean(viewedMemberId && viewedMemberId !== currentUserId);
+  const preWorldCupInteractionLocked = preWorldCupLocked || isViewingAnotherMember;
   const activeModeLocked =
     activeMode === "pre-world-cup"
-      ? preWorldCupLocked
+      ? preWorldCupInteractionLocked
       : false;
   const selectedGroup = tournamentGroups.find((group) => group.id === selectedGroupId) ?? tournamentGroups[0];
   const advisorHomeTeam = getTeamById(advisorHomeTeamId);
   const advisorAwayTeam = getTeamById(advisorAwayTeamId);
   const adviceWeightTotal = Object.values(adviceWeights).reduce((sum, value) => sum + value, 0);
   const saveButtonLabel =
-    activeMode === "pre-world-cup"
+    isViewingAnotherMember
+      ? "Viewing member picks"
+      : activeMode === "pre-world-cup"
       ? preWorldCupLocked
         ? "Pre-World Cup picks are locked"
         : saveStatus === "saving"
@@ -544,9 +557,14 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
       setSaveMessage("");
 
       try {
-        const response = await fetch(`/api/groups/${encodeURIComponent(groupId)}/predictions`, {
-          credentials: "include",
-        });
+        const response = await fetch(
+          `/api/groups/${encodeURIComponent(groupId)}/predictions${
+            viewedMemberId ? `?userId=${encodeURIComponent(viewedMemberId)}` : ""
+          }`,
+          {
+            credentials: "include",
+          },
+        );
 
         if (!response.ok) {
           if (isCurrent) {
@@ -557,9 +575,16 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
 
         const data = (await response.json()) as {
           draft: null | { predictionData?: unknown; updatedAt?: string };
+          currentUserId?: string;
+          viewedMember?: { id: string; username: string };
           officialKnockoutMatches?: OfficialKnockoutMatch[];
         };
         const predictionData = data.draft?.predictionData;
+
+        if (isCurrent) {
+          setCurrentUserId(data.currentUserId ?? "");
+          setViewedMemberName(data.viewedMember?.username ?? "");
+        }
 
         if (isCurrent && isObjectRecord(predictionData)) {
           if (typeof predictionData.selectedGroupId === "string") {
@@ -588,8 +613,8 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
 
           setSaveMessage(
             data.draft?.updatedAt
-              ? `Draft loaded from ${new Date(data.draft.updatedAt).toLocaleString()}.`
-              : "Draft loaded.",
+              ? `${data.viewedMember?.id && data.viewedMember.id !== data.currentUserId ? `${data.viewedMember.username}'s` : "Your"} draft loaded from ${new Date(data.draft.updatedAt).toLocaleString()}.`
+              : `${data.viewedMember?.id && data.viewedMember.id !== data.currentUserId ? `${data.viewedMember.username}'s` : "Your"} draft loaded.`,
           );
         }
 
@@ -616,7 +641,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
     return () => {
       isCurrent = false;
     };
-  }, [fallbackOfficialKnockoutMatches, groupId]);
+  }, [fallbackOfficialKnockoutMatches, groupId, viewedMemberId]);
 
   async function handleSaveDraft() {
     setSaveStatus("saving");
@@ -810,6 +835,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
     const awayTeam = getTeamById(match.awayTeamId ?? "");
     const selectedWinner = getLiveKnockoutSelectedWinner(match);
     const matchLocked = isOfficialKnockoutMatchLocked(match);
+    const interactionLocked = matchLocked || isViewingAnotherMember;
     const actualResultText =
       match.status === "final" &&
       homeTeam &&
@@ -841,7 +867,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
           >
             <button
               type="button"
-              disabled={!homeTeam || matchLocked}
+              disabled={!homeTeam || interactionLocked}
               onClick={() =>
                 homeTeam
                   ? setLiveKnockoutWinners((current) => ({ ...current, [match.id]: homeTeam.id }))
@@ -859,7 +885,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
               type="number"
               min="0"
               inputMode="numeric"
-              disabled={matchLocked}
+              disabled={interactionLocked}
               value={liveKnockoutScores[match.id]?.home ?? ""}
               onChange={(event) =>
                 updateScore(setLiveKnockoutScores, match.id, "home", event.target.value)
@@ -875,7 +901,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
           >
             <button
               type="button"
-              disabled={!awayTeam || matchLocked}
+              disabled={!awayTeam || interactionLocked}
               onClick={() =>
                 awayTeam
                   ? setLiveKnockoutWinners((current) => ({ ...current, [match.id]: awayTeam.id }))
@@ -893,7 +919,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
               type="number"
               min="0"
               inputMode="numeric"
-              disabled={matchLocked}
+              disabled={interactionLocked}
               value={liveKnockoutScores[match.id]?.away ?? ""}
               onChange={(event) =>
                 updateScore(setLiveKnockoutScores, match.id, "away", event.target.value)
@@ -905,7 +931,13 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
 
         <div className="official-knockout-card-footer">
           <span>{`Winner points: ${knockoutPointValues[match.stage] ?? 0}`}</span>
-          {matchLocked ? <span>Locked at kickoff</span> : <span>Editable until kickoff</span>}
+          {isViewingAnotherMember ? (
+            <span>Read-only member view</span>
+          ) : matchLocked ? (
+            <span>Locked at kickoff</span>
+          ) : (
+            <span>Editable until kickoff</span>
+          )}
           {actualResultText ? <span>{actualResultText}</span> : null}
         </div>
       </article>
@@ -939,7 +971,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
     return <span>{label}</span>;
   }
 
-  function renderPredictionBracketMatch(match: Match, className = "") {
+  function renderPredictionBracketMatch(match: Match, className = "", style?: CSSProperties) {
     const homeTeamId = resolveSlotTeamId(
       match.homeSlotLabel,
       effectiveRankings,
@@ -983,18 +1015,23 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
     const selectedWinner = effectiveBracketWinners[match.id];
 
     return (
-      <article key={match.id} className={`prediction-bracket-node prediction-split-node ${className}`}>
-        <div className="prediction-bracket-match-meta">
+      <article
+        key={match.id}
+        className={`bracket-match-node prediction-bracket-node ${className}`}
+        style={style}
+      >
+        <div className="bracket-match-number prediction-bracket-match-meta">
           <span>{formatKickoff(match.kickoff)}</span>
+          <span>{match.venue}</span>
         </div>
         <div
-          className={`prediction-bracket-slot ${
+          className={`bracket-slot-row prediction-bracket-slot ${
             homeTeamId && selectedWinner === homeTeamId ? "is-selected" : ""
           }`}
         >
           <button
             type="button"
-            disabled={!homeTeamId || preWorldCupLocked}
+            disabled={!homeTeamId || preWorldCupInteractionLocked}
             onClick={() =>
               homeTeamId
                 ? setBracketWinners((current) => ({ ...current, [match.id]: homeTeamId }))
@@ -1006,13 +1043,13 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
           </button>
         </div>
         <div
-          className={`prediction-bracket-slot ${
+          className={`bracket-slot-row prediction-bracket-slot ${
             awayTeamId && selectedWinner === awayTeamId ? "is-selected" : ""
           }`}
         >
           <button
             type="button"
-            disabled={!awayTeamId || preWorldCupLocked}
+            disabled={!awayTeamId || preWorldCupInteractionLocked}
             onClick={() =>
               awayTeamId
                 ? setBracketWinners((current) => ({ ...current, [match.id]: awayTeamId }))
@@ -1035,30 +1072,29 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
     return renderPredictionBracketMatch(thirdPlaceMatch, className);
   }
 
-  const leftSplitBracketStages = [
-    { label: "Round of 32", matches: knockoutMatchesByStage[0]?.slice(0, 8) ?? [] },
-    { label: "Round of 16", matches: knockoutMatchesByStage[1]?.slice(0, 4) ?? [] },
-    { label: "Quarterfinals", matches: knockoutMatchesByStage[2]?.slice(0, 2) ?? [] },
-    { label: "Semifinals", matches: knockoutMatchesByStage[3]?.slice(0, 1) ?? [] },
-  ];
-  const rightSplitBracketStages = [
-    { label: "Semifinals", matches: knockoutMatchesByStage[3]?.slice(1, 2) ?? [] },
-    { label: "Quarterfinals", matches: knockoutMatchesByStage[2]?.slice(2, 4) ?? [] },
-    { label: "Round of 16", matches: knockoutMatchesByStage[1]?.slice(4, 8) ?? [] },
-    { label: "Round of 32", matches: knockoutMatchesByStage[0]?.slice(8, 16) ?? [] },
-  ];
-  const finalMatch = knockoutMatchesByStage[4]?.[0];
-
   return (
     <div className="section-stack">
       <section className="page-intro">
-        <p className="eyebrow">Edit picks</p>
+        <p className="eyebrow">{isViewingAnotherMember ? "Member picks" : "Edit picks"}</p>
         <h1>{activeGroupName}: prediction sheet</h1>
         <p>
-          Choose between locked-in pre-tournament picks and live official knockout picks. Your
-          total score is the sum of both sections.
+          {isViewingAnotherMember
+            ? `Viewing ${viewedMemberName || "this member"}'s saved predictions in read-only mode.`
+            : "Choose between locked-in pre-tournament picks and live official knockout picks. Your total score is the sum of both sections."}
         </p>
       </section>
+
+      {isViewingAnotherMember ? (
+        <section className="helper-banner">
+          <span>
+            You are viewing {viewedMemberName || "this member"}&apos;s picks. Your own predictions will
+            not change.
+          </span>
+          <Link href={`/groups/${groupId}/predictions`} className="secondary-button">
+            Back to my picks
+          </Link>
+        </section>
+      ) : null}
 
       <section className="prediction-mode-selector">
         <button
@@ -1243,7 +1279,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
           <label>
             Select group
             <select
-              disabled={preWorldCupLocked}
+              disabled={preWorldCupLocked && !isViewingAnotherMember}
               value={selectedGroupId}
               onChange={(event) => setSelectedGroupId(event.target.value)}
             >
@@ -1277,7 +1313,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
                       type="number"
                       min="0"
                       inputMode="numeric"
-                      disabled={preWorldCupLocked}
+                      disabled={preWorldCupInteractionLocked}
                       value={groupScores[match.id]?.home ?? ""}
                       onChange={(event) =>
                         updateScore(setGroupScores, match.id, "home", event.target.value)
@@ -1289,7 +1325,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
                       type="number"
                       min="0"
                       inputMode="numeric"
-                      disabled={preWorldCupLocked}
+                      disabled={preWorldCupInteractionLocked}
                       value={groupScores[match.id]?.away ?? ""}
                       onChange={(event) =>
                         updateScore(setGroupScores, match.id, "away", event.target.value)
@@ -1357,232 +1393,27 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
           </div>
         </div>
 
-        <div className="prediction-split-bracket" aria-label="Knockout prediction bracket">
-          <div className="prediction-split-side prediction-split-left">
-            {leftSplitBracketStages.map((stage, stageIndex) => (
-              <section
-                key={stage.label}
-                className={`prediction-split-stage prediction-split-stage-${stage.matches.length}`}
-              >
-                <h3>{stage.label}</h3>
-                {stageIndex > 0 ? (
-                  <div
-                    className={`prediction-match-connectors prediction-match-connectors-${
-                      leftSplitBracketStages[stageIndex - 1]?.matches.length ?? stage.matches.length
-                    } is-down`}
-                    aria-hidden="true"
-                  >
-                    {Array.from({ length: stage.matches.length }, (_, index) => (
-                      <span key={index} />
-                    ))}
-                  </div>
-                ) : null}
-                <div className="prediction-split-stage-matches">
-                  {stage.matches.map((match) => renderPredictionBracketMatch(match))}
-                </div>
-              </section>
-            ))}
-          </div>
-
-          <section className="prediction-split-center">
-            {thirdPlaceMatch ? <h3 className="prediction-third-place-heading">Third place</h3> : null}
-            <h3 className="prediction-final-heading">Final</h3>
-            {renderThirdPlaceCard("prediction-third-place-center-card")}
-            {finalMatch ? renderPredictionBracketMatch(finalMatch, "is-final-node") : null}
-          </section>
-
-          <div className="prediction-split-side prediction-split-right">
-            {rightSplitBracketStages.map((stage, stageIndex) => (
-              <section
-                key={stage.label}
-                className={`prediction-split-stage prediction-split-stage-${stage.matches.length}`}
-              >
-                <h3>{stage.label}</h3>
-                {stageIndex > 0 ? (
-                  <div
-                    className={`prediction-match-connectors prediction-match-connectors-${stage.matches.length} is-up`}
-                    aria-hidden="true"
-                  >
-                    {Array.from({ length: Math.ceil(stage.matches.length / 2) }, (_, index) => (
-                      <span key={index} />
-                    ))}
-                  </div>
-                ) : null}
-                <div className="prediction-split-stage-matches">
-                  {stage.matches.map((match) => renderPredictionBracketMatch(match))}
-                </div>
-              </section>
-            ))}
-          </div>
-        </div>
-
-        <div className="prediction-bracket-shell" aria-label="Knockout prediction bracket">
-          <div className="prediction-bracket-stage-labels" aria-hidden="true">
+        <div className="bracket-shell prediction-bracket-shell" aria-label="Knockout prediction bracket">
+          <div className="bracket-stage-labels prediction-bracket-stage-labels" aria-hidden="true">
             {knockoutStages.map((stage) => (
               <span key={stage}>{bracketStageLabel[stage]}</span>
             ))}
           </div>
 
-          <div className="prediction-bracket-tree">
+          <div className="bracket-tree prediction-bracket-tree">
             {knockoutMatchesByStage.flatMap((roundMatches, stageIndex) =>
-              roundMatches.map((match, slotIndex) => {
-                const homeTeamId = resolveSlotTeamId(
-                  match.homeSlotLabel,
-                  effectiveRankings,
-                  effectiveBracketWinners,
-                  effectiveBracketRunnerUps,
-                );
-                const awayTeamId = resolveSlotTeamId(
-                  match.awaySlotLabel,
-                  effectiveRankings,
-                  effectiveBracketWinners,
-                  effectiveBracketRunnerUps,
-                );
-                const homeTeam = homeTeamId ? getTeamById(homeTeamId) : undefined;
-                const awayTeam = awayTeamId ? getTeamById(awayTeamId) : undefined;
-                const homeLabel = resolveSlotLabel(
-                  match.homeSlotLabel,
-                  effectiveRankings,
-                  effectiveBracketWinners,
-                  effectiveBracketRunnerUps,
-                );
-                const awayLabel = resolveSlotLabel(
-                  match.awaySlotLabel,
-                  effectiveRankings,
-                  effectiveBracketWinners,
-                  effectiveBracketRunnerUps,
-                );
-                const homePreviewTeamIds = getUnresolvedSourceTeamIds(
-                  match.homeSlotLabel,
-                  effectiveRankings,
-                  effectiveBracketWinners,
-                  effectiveBracketRunnerUps,
-                  knockoutMatches,
-                );
-                const awayPreviewTeamIds = getUnresolvedSourceTeamIds(
-                  match.awaySlotLabel,
-                  effectiveRankings,
-                  effectiveBracketWinners,
-                  effectiveBracketRunnerUps,
-                  knockoutMatches,
-                );
-                const selectedWinner = effectiveBracketWinners[match.id];
-                const isFinal = match.stage === "Final";
-
-                return (
-                  <article
-                    key={match.id}
-                    className={`prediction-bracket-node ${
-                      stageIndex > 0 ? "has-left-connector" : ""
-                    } ${!isFinal ? "has-right-connector" : "is-final-node"}`}
-                    style={{
-                      gridColumn: stageIndex * 2 + 1,
-                      gridRow: `${getBracketRowStart(stageIndex, slotIndex)} / span 3`,
-                    }}
-                  >
-                    <div className="prediction-bracket-match-meta">
-                      <span>{formatKickoff(match.kickoff)}</span>
-                      <span>{match.venue}</span>
-                    </div>
-                    <div
-                      className={`prediction-bracket-slot ${
-                        homeTeamId && selectedWinner === homeTeamId ? "is-selected" : ""
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        disabled={!homeTeamId || preWorldCupLocked}
-                        onClick={() =>
-                          homeTeamId
-                            ? setBracketWinners((current) => ({ ...current, [match.id]: homeTeamId }))
-                            : undefined
-                        }
-                        aria-pressed={homeTeamId ? selectedWinner === homeTeamId : undefined}
-                      >
-                        {homeTeam ? (
-                          <TeamBadge team={homeTeam} />
-                        ) : homePreviewTeamIds.length > 0 ? (
-                          <span className="prediction-bracket-source-preview">
-                            {homePreviewTeamIds.map((teamId, index) => {
-                              const previewTeam = getTeamById(teamId);
-
-                              return previewTeam ? (
-                                <span key={teamId} className="prediction-bracket-preview-team">
-                                  <TeamBadge team={previewTeam} />
-                                  {index < homePreviewTeamIds.length - 1 ? (
-                                    <span className="prediction-bracket-preview-divider">/</span>
-                                  ) : null}
-                                </span>
-                              ) : null;
-                            })}
-                          </span>
-                        ) : (
-                          <span>{homeLabel}</span>
-                        )}
-                      </button>
-                      <input
-                        type="number"
-                        min="0"
-                        inputMode="numeric"
-                        disabled={preWorldCupLocked}
-                        value={bracketScores[match.id]?.home ?? ""}
-                        onChange={(event) =>
-                          updateScore(setBracketScores, match.id, "home", event.target.value)
-                        }
-                        aria-label={`${homeLabel} score`}
-                      />
-                    </div>
-                    <div
-                      className={`prediction-bracket-slot ${
-                        awayTeamId && selectedWinner === awayTeamId ? "is-selected" : ""
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        disabled={!awayTeamId || preWorldCupLocked}
-                        onClick={() =>
-                          awayTeamId
-                            ? setBracketWinners((current) => ({ ...current, [match.id]: awayTeamId }))
-                            : undefined
-                        }
-                        aria-pressed={awayTeamId ? selectedWinner === awayTeamId : undefined}
-                      >
-                        {awayTeam ? (
-                          <TeamBadge team={awayTeam} />
-                        ) : awayPreviewTeamIds.length > 0 ? (
-                          <span className="prediction-bracket-source-preview">
-                            {awayPreviewTeamIds.map((teamId, index) => {
-                              const previewTeam = getTeamById(teamId);
-
-                              return previewTeam ? (
-                                <span key={teamId} className="prediction-bracket-preview-team">
-                                  <TeamBadge team={previewTeam} />
-                                  {index < awayPreviewTeamIds.length - 1 ? (
-                                    <span className="prediction-bracket-preview-divider">/</span>
-                                  ) : null}
-                                </span>
-                              ) : null;
-                            })}
-                          </span>
-                        ) : (
-                          <span>{awayLabel}</span>
-                        )}
-                      </button>
-                      <input
-                        type="number"
-                        min="0"
-                        inputMode="numeric"
-                        disabled={preWorldCupLocked}
-                        value={bracketScores[match.id]?.away ?? ""}
-                        onChange={(event) =>
-                          updateScore(setBracketScores, match.id, "away", event.target.value)
-                        }
-                        aria-label={`${awayLabel} score`}
-                      />
-                    </div>
-                  </article>
-                );
-              }),
+              roundMatches.map((match, slotIndex) =>
+                renderPredictionBracketMatch(
+                  match,
+                  `${stageIndex > 0 ? "has-left-connector" : ""} ${
+                    match.stage !== "Final" ? "has-right-connector" : "is-final-node"
+                  }`,
+                  {
+                    gridColumn: stageIndex * 2 + 1,
+                    gridRow: `${getBracketRowStart(stageIndex, slotIndex)} / span 3`,
+                  },
+                ),
+              ),
             )}
 
             {knockoutMatchesByStage.slice(0, -1).flatMap((roundMatches, stageIndex) =>
@@ -1593,7 +1424,7 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
                 return (
                   <span
                     key={`${stageIndex}-${connectorIndex}`}
-                    className="prediction-bracket-connector"
+                    className="bracket-connector prediction-bracket-connector"
                     style={{
                       gridColumn: stageIndex * 2 + 2,
                       gridRow: `${firstMatchRow + 1} / ${secondMatchRow + 2}`,
@@ -1604,6 +1435,13 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
               }),
             )}
           </div>
+
+          {thirdPlaceMatch ? (
+            <aside className="third-place-panel prediction-third-place-panel" aria-label="Third place match">
+              <span className="bracket-stage-chip">Third place</span>
+              {renderThirdPlaceCard()}
+            </aside>
+          ) : null}
         </div>
 
         <div className="prediction-bracket-side-panels">
@@ -1674,14 +1512,16 @@ export function EditPicksWorkspace({ groupId, groupName, scoringMode }: EditPick
       ) : null}
 
       <div className="page-actions prediction-save-actions">
-        <button
-          type="button"
-          className="primary-button"
-          onClick={handleSaveDraft}
-          disabled={saveStatus === "loading" || saveStatus === "saving" || activeModeLocked}
-        >
-          {saveButtonLabel}
-        </button>
+        {!isViewingAnotherMember ? (
+          <button
+            type="button"
+            className="primary-button"
+            onClick={handleSaveDraft}
+            disabled={saveStatus === "loading" || saveStatus === "saving" || activeModeLocked}
+          >
+            {saveButtonLabel}
+          </button>
+        ) : null}
         {saveMessage ? (
           <p className={saveStatus === "error" ? "form-error" : "form-success"}>{saveMessage}</p>
         ) : null}

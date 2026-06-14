@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { ReactNode } from "react";
 
 import { SiteHeader } from "@/components/site-header";
@@ -9,6 +9,12 @@ export const metadata: Metadata = {
   title: "World Cup 2026 Friend Predictor",
   description:
     "Starter structure for a private World Cup 2026 prediction game with schedules, team views, and friend pools.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
