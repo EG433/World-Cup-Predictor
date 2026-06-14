@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
 
 import { ScoringRulesPanel } from "@/components/scoring-rules-panel";
@@ -971,7 +971,7 @@ export function EditPicksWorkspace({
     return <span>{label}</span>;
   }
 
-  function renderPredictionBracketMatch(match: Match, className = "") {
+  function renderPredictionBracketMatch(match: Match, className = "", style?: CSSProperties) {
     const homeTeamId = resolveSlotTeamId(
       match.homeSlotLabel,
       effectiveRankings,
@@ -1015,12 +1015,17 @@ export function EditPicksWorkspace({
     const selectedWinner = effectiveBracketWinners[match.id];
 
     return (
-      <article key={match.id} className={`prediction-bracket-node prediction-split-node ${className}`}>
-        <div className="prediction-bracket-match-meta">
+      <article
+        key={match.id}
+        className={`bracket-match-node prediction-bracket-node ${className}`}
+        style={style}
+      >
+        <div className="bracket-match-number prediction-bracket-match-meta">
           <span>{formatKickoff(match.kickoff)}</span>
+          <span>{match.venue}</span>
         </div>
         <div
-          className={`prediction-bracket-slot ${
+          className={`bracket-slot-row prediction-bracket-slot ${
             homeTeamId && selectedWinner === homeTeamId ? "is-selected" : ""
           }`}
         >
@@ -1038,7 +1043,7 @@ export function EditPicksWorkspace({
           </button>
         </div>
         <div
-          className={`prediction-bracket-slot ${
+          className={`bracket-slot-row prediction-bracket-slot ${
             awayTeamId && selectedWinner === awayTeamId ? "is-selected" : ""
           }`}
         >
@@ -1066,20 +1071,6 @@ export function EditPicksWorkspace({
 
     return renderPredictionBracketMatch(thirdPlaceMatch, className);
   }
-
-  const leftSplitBracketStages = [
-    { label: "Round of 32", matches: knockoutMatchesByStage[0]?.slice(0, 8) ?? [] },
-    { label: "Round of 16", matches: knockoutMatchesByStage[1]?.slice(0, 4) ?? [] },
-    { label: "Quarterfinals", matches: knockoutMatchesByStage[2]?.slice(0, 2) ?? [] },
-    { label: "Semifinals", matches: knockoutMatchesByStage[3]?.slice(0, 1) ?? [] },
-  ];
-  const rightSplitBracketStages = [
-    { label: "Semifinals", matches: knockoutMatchesByStage[3]?.slice(1, 2) ?? [] },
-    { label: "Quarterfinals", matches: knockoutMatchesByStage[2]?.slice(2, 4) ?? [] },
-    { label: "Round of 16", matches: knockoutMatchesByStage[1]?.slice(4, 8) ?? [] },
-    { label: "Round of 32", matches: knockoutMatchesByStage[0]?.slice(8, 16) ?? [] },
-  ];
-  const finalMatch = knockoutMatchesByStage[4]?.[0];
 
   return (
     <div className="section-stack">
@@ -1402,232 +1393,27 @@ export function EditPicksWorkspace({
           </div>
         </div>
 
-        <div className="prediction-split-bracket" aria-label="Knockout prediction bracket">
-          <div className="prediction-split-side prediction-split-left">
-            {leftSplitBracketStages.map((stage, stageIndex) => (
-              <section
-                key={stage.label}
-                className={`prediction-split-stage prediction-split-stage-${stage.matches.length}`}
-              >
-                <h3>{stage.label}</h3>
-                {stageIndex > 0 ? (
-                  <div
-                    className={`prediction-match-connectors prediction-match-connectors-${
-                      leftSplitBracketStages[stageIndex - 1]?.matches.length ?? stage.matches.length
-                    } is-down`}
-                    aria-hidden="true"
-                  >
-                    {Array.from({ length: stage.matches.length }, (_, index) => (
-                      <span key={index} />
-                    ))}
-                  </div>
-                ) : null}
-                <div className="prediction-split-stage-matches">
-                  {stage.matches.map((match) => renderPredictionBracketMatch(match))}
-                </div>
-              </section>
-            ))}
-          </div>
-
-          <section className="prediction-split-center">
-            {thirdPlaceMatch ? <h3 className="prediction-third-place-heading">Third place</h3> : null}
-            <h3 className="prediction-final-heading">Final</h3>
-            {renderThirdPlaceCard("prediction-third-place-center-card")}
-            {finalMatch ? renderPredictionBracketMatch(finalMatch, "is-final-node") : null}
-          </section>
-
-          <div className="prediction-split-side prediction-split-right">
-            {rightSplitBracketStages.map((stage, stageIndex) => (
-              <section
-                key={stage.label}
-                className={`prediction-split-stage prediction-split-stage-${stage.matches.length}`}
-              >
-                <h3>{stage.label}</h3>
-                {stageIndex > 0 ? (
-                  <div
-                    className={`prediction-match-connectors prediction-match-connectors-${stage.matches.length} is-up`}
-                    aria-hidden="true"
-                  >
-                    {Array.from({ length: Math.ceil(stage.matches.length / 2) }, (_, index) => (
-                      <span key={index} />
-                    ))}
-                  </div>
-                ) : null}
-                <div className="prediction-split-stage-matches">
-                  {stage.matches.map((match) => renderPredictionBracketMatch(match))}
-                </div>
-              </section>
-            ))}
-          </div>
-        </div>
-
-        <div className="prediction-bracket-shell" aria-label="Knockout prediction bracket">
-          <div className="prediction-bracket-stage-labels" aria-hidden="true">
+        <div className="bracket-shell prediction-bracket-shell" aria-label="Knockout prediction bracket">
+          <div className="bracket-stage-labels prediction-bracket-stage-labels" aria-hidden="true">
             {knockoutStages.map((stage) => (
               <span key={stage}>{bracketStageLabel[stage]}</span>
             ))}
           </div>
 
-          <div className="prediction-bracket-tree">
+          <div className="bracket-tree prediction-bracket-tree">
             {knockoutMatchesByStage.flatMap((roundMatches, stageIndex) =>
-              roundMatches.map((match, slotIndex) => {
-                const homeTeamId = resolveSlotTeamId(
-                  match.homeSlotLabel,
-                  effectiveRankings,
-                  effectiveBracketWinners,
-                  effectiveBracketRunnerUps,
-                );
-                const awayTeamId = resolveSlotTeamId(
-                  match.awaySlotLabel,
-                  effectiveRankings,
-                  effectiveBracketWinners,
-                  effectiveBracketRunnerUps,
-                );
-                const homeTeam = homeTeamId ? getTeamById(homeTeamId) : undefined;
-                const awayTeam = awayTeamId ? getTeamById(awayTeamId) : undefined;
-                const homeLabel = resolveSlotLabel(
-                  match.homeSlotLabel,
-                  effectiveRankings,
-                  effectiveBracketWinners,
-                  effectiveBracketRunnerUps,
-                );
-                const awayLabel = resolveSlotLabel(
-                  match.awaySlotLabel,
-                  effectiveRankings,
-                  effectiveBracketWinners,
-                  effectiveBracketRunnerUps,
-                );
-                const homePreviewTeamIds = getUnresolvedSourceTeamIds(
-                  match.homeSlotLabel,
-                  effectiveRankings,
-                  effectiveBracketWinners,
-                  effectiveBracketRunnerUps,
-                  knockoutMatches,
-                );
-                const awayPreviewTeamIds = getUnresolvedSourceTeamIds(
-                  match.awaySlotLabel,
-                  effectiveRankings,
-                  effectiveBracketWinners,
-                  effectiveBracketRunnerUps,
-                  knockoutMatches,
-                );
-                const selectedWinner = effectiveBracketWinners[match.id];
-                const isFinal = match.stage === "Final";
-
-                return (
-                  <article
-                    key={match.id}
-                    className={`prediction-bracket-node ${
-                      stageIndex > 0 ? "has-left-connector" : ""
-                    } ${!isFinal ? "has-right-connector" : "is-final-node"}`}
-                    style={{
-                      gridColumn: stageIndex * 2 + 1,
-                      gridRow: `${getBracketRowStart(stageIndex, slotIndex)} / span 3`,
-                    }}
-                  >
-                    <div className="prediction-bracket-match-meta">
-                      <span>{formatKickoff(match.kickoff)}</span>
-                      <span>{match.venue}</span>
-                    </div>
-                    <div
-                      className={`prediction-bracket-slot ${
-                        homeTeamId && selectedWinner === homeTeamId ? "is-selected" : ""
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        disabled={!homeTeamId || preWorldCupInteractionLocked}
-                        onClick={() =>
-                          homeTeamId
-                            ? setBracketWinners((current) => ({ ...current, [match.id]: homeTeamId }))
-                            : undefined
-                        }
-                        aria-pressed={homeTeamId ? selectedWinner === homeTeamId : undefined}
-                      >
-                        {homeTeam ? (
-                          <TeamBadge team={homeTeam} />
-                        ) : homePreviewTeamIds.length > 0 ? (
-                          <span className="prediction-bracket-source-preview">
-                            {homePreviewTeamIds.map((teamId, index) => {
-                              const previewTeam = getTeamById(teamId);
-
-                              return previewTeam ? (
-                                <span key={teamId} className="prediction-bracket-preview-team">
-                                  <TeamBadge team={previewTeam} />
-                                  {index < homePreviewTeamIds.length - 1 ? (
-                                    <span className="prediction-bracket-preview-divider">/</span>
-                                  ) : null}
-                                </span>
-                              ) : null;
-                            })}
-                          </span>
-                        ) : (
-                          <span>{homeLabel}</span>
-                        )}
-                      </button>
-                      <input
-                        type="number"
-                        min="0"
-                        inputMode="numeric"
-                        disabled={preWorldCupInteractionLocked}
-                        value={bracketScores[match.id]?.home ?? ""}
-                        onChange={(event) =>
-                          updateScore(setBracketScores, match.id, "home", event.target.value)
-                        }
-                        aria-label={`${homeLabel} score`}
-                      />
-                    </div>
-                    <div
-                      className={`prediction-bracket-slot ${
-                        awayTeamId && selectedWinner === awayTeamId ? "is-selected" : ""
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        disabled={!awayTeamId || preWorldCupInteractionLocked}
-                        onClick={() =>
-                          awayTeamId
-                            ? setBracketWinners((current) => ({ ...current, [match.id]: awayTeamId }))
-                            : undefined
-                        }
-                        aria-pressed={awayTeamId ? selectedWinner === awayTeamId : undefined}
-                      >
-                        {awayTeam ? (
-                          <TeamBadge team={awayTeam} />
-                        ) : awayPreviewTeamIds.length > 0 ? (
-                          <span className="prediction-bracket-source-preview">
-                            {awayPreviewTeamIds.map((teamId, index) => {
-                              const previewTeam = getTeamById(teamId);
-
-                              return previewTeam ? (
-                                <span key={teamId} className="prediction-bracket-preview-team">
-                                  <TeamBadge team={previewTeam} />
-                                  {index < awayPreviewTeamIds.length - 1 ? (
-                                    <span className="prediction-bracket-preview-divider">/</span>
-                                  ) : null}
-                                </span>
-                              ) : null;
-                            })}
-                          </span>
-                        ) : (
-                          <span>{awayLabel}</span>
-                        )}
-                      </button>
-                      <input
-                        type="number"
-                        min="0"
-                        inputMode="numeric"
-                        disabled={preWorldCupInteractionLocked}
-                        value={bracketScores[match.id]?.away ?? ""}
-                        onChange={(event) =>
-                          updateScore(setBracketScores, match.id, "away", event.target.value)
-                        }
-                        aria-label={`${awayLabel} score`}
-                      />
-                    </div>
-                  </article>
-                );
-              }),
+              roundMatches.map((match, slotIndex) =>
+                renderPredictionBracketMatch(
+                  match,
+                  `${stageIndex > 0 ? "has-left-connector" : ""} ${
+                    match.stage !== "Final" ? "has-right-connector" : "is-final-node"
+                  }`,
+                  {
+                    gridColumn: stageIndex * 2 + 1,
+                    gridRow: `${getBracketRowStart(stageIndex, slotIndex)} / span 3`,
+                  },
+                ),
+              ),
             )}
 
             {knockoutMatchesByStage.slice(0, -1).flatMap((roundMatches, stageIndex) =>
@@ -1638,7 +1424,7 @@ export function EditPicksWorkspace({
                 return (
                   <span
                     key={`${stageIndex}-${connectorIndex}`}
-                    className="prediction-bracket-connector"
+                    className="bracket-connector prediction-bracket-connector"
                     style={{
                       gridColumn: stageIndex * 2 + 2,
                       gridRow: `${firstMatchRow + 1} / ${secondMatchRow + 2}`,
@@ -1649,6 +1435,13 @@ export function EditPicksWorkspace({
               }),
             )}
           </div>
+
+          {thirdPlaceMatch ? (
+            <aside className="third-place-panel prediction-third-place-panel" aria-label="Third place match">
+              <span className="bracket-stage-chip">Third place</span>
+              {renderThirdPlaceCard()}
+            </aside>
+          ) : null}
         </div>
 
         <div className="prediction-bracket-side-panels">
