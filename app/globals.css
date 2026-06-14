@@ -3642,7 +3642,7 @@ p {
   }
 
   .prediction-bracket-tree {
-    grid-template-rows: repeat(64, 34px);
+    grid-template-rows: repeat(64, 42px);
   }
 
   .bracket-match-node,
@@ -3651,7 +3651,7 @@ p {
   }
 
   .prediction-bracket-node {
-    min-height: 118px;
+    min-height: 120px;
   }
 
   .bracket-match-node.has-left-connector::before,
@@ -3673,8 +3673,8 @@ p {
 
   .bracket-connector::before,
   .prediction-bracket-connector::before {
-    top: 24px;
-    bottom: 24px;
+    top: 42px;
+    bottom: 42px;
   }
 
   .prediction-bracket-match-meta {
@@ -4190,7 +4190,7 @@ p {
   }
 
   .prediction-bracket-tree {
-    grid-template-rows: repeat(64, 32px);
+    grid-template-rows: repeat(64, 40px);
   }
 
   .bracket-match-node.has-left-connector::before,
@@ -4211,7 +4211,7 @@ p {
   }
 
   .prediction-bracket-node {
-    min-height: 112px;
+    min-height: 114px;
   }
 
   .prediction-bracket-slot {
@@ -4230,8 +4230,8 @@ p {
   }
 
   .prediction-bracket-connector::before {
-    top: 22px;
-    bottom: 22px;
+    top: 40px;
+    bottom: 40px;
   }
 
   .site-header {
