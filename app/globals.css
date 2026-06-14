@@ -3954,6 +3954,101 @@ p {
     padding: 1rem;
   }
 
+  .prediction-split-bracket {
+    gap: 1rem;
+    padding: 0.2rem 0 0.6rem;
+  }
+
+  .prediction-split-left,
+  .prediction-split-right {
+    direction: ltr;
+  }
+
+  .prediction-split-side {
+    grid-template-columns: 1fr;
+    gap: 0.9rem;
+  }
+
+  .prediction-split-stage {
+    gap: 0.65rem;
+    padding: 0.85rem;
+    border: 1px solid rgba(19, 41, 61, 0.1);
+    border-radius: 18px;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.72), transparent),
+      rgba(255, 253, 248, 0.74);
+  }
+
+  .prediction-split-stage h3,
+  .prediction-split-center h3 {
+    text-align: left;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+  }
+
+  .prediction-match-connectors {
+    display: none;
+  }
+
+  .prediction-split-stage-8 .prediction-split-stage-matches,
+  .prediction-split-stage-4 .prediction-split-stage-matches,
+  .prediction-split-stage-2 .prediction-split-stage-matches {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem;
+    justify-items: stretch;
+  }
+
+  .prediction-split-stage-1 .prediction-split-stage-matches {
+    grid-template-columns: 1fr;
+    gap: 0.7rem;
+    justify-items: stretch;
+  }
+
+  .prediction-split-stage-8 .prediction-bracket-node,
+  .prediction-split-stage-4 .prediction-bracket-node,
+  .prediction-split-stage-2 .prediction-bracket-node,
+  .prediction-split-stage-1 .prediction-bracket-node {
+    width: 100%;
+    max-width: none;
+  }
+
+  .prediction-split-center {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+    justify-self: stretch;
+  }
+
+  .prediction-split-center > .prediction-third-place-heading,
+  .prediction-split-center > .prediction-final-heading,
+  .prediction-split-center > .prediction-third-place-center-card,
+  .prediction-split-center > .prediction-split-node,
+  .prediction-split-center > .prediction-champion-center-card {
+    grid-column: 1;
+    width: 100%;
+    max-width: none;
+    transform: none;
+    justify-self: stretch;
+  }
+
+  .prediction-split-node .prediction-bracket-match-meta {
+    padding: 0.35rem 0.45rem;
+    font-size: 0.58rem;
+  }
+
+  .prediction-split-node .prediction-bracket-slot {
+    min-height: 0;
+  }
+
+  .prediction-split-node .prediction-bracket-slot button {
+    padding: 0.35rem 0.45rem;
+    font-size: 0.72rem;
+    line-height: 1.2;
+  }
+
+  .prediction-split-node .prediction-bracket-slot input {
+    min-height: 2.3rem;
+  }
+
   .score-pick-row {
     grid-template-columns: 1fr 1fr 3rem auto 3rem 1fr;
     gap: 0.45rem;
@@ -4114,5 +4209,26 @@ p {
   .group-stat-card,
   .home-metric-card {
     padding: 0.85rem;
+  }
+
+  .prediction-split-stage {
+    padding: 0.75rem;
+    border-radius: 16px;
+  }
+
+  .prediction-split-stage-8 .prediction-split-stage-matches,
+  .prediction-split-stage-4 .prediction-split-stage-matches,
+  .prediction-split-stage-2 .prediction-split-stage-matches,
+  .prediction-split-stage-1 .prediction-split-stage-matches {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+
+  .prediction-split-node .prediction-bracket-match-meta {
+    font-size: 0.56rem;
+  }
+
+  .prediction-split-node .prediction-bracket-slot button {
+    font-size: 0.68rem;
   }
 }
