@@ -327,7 +327,17 @@ const kickoffTimesEt: Record<number, string> = {
 };
 
 function fixtureKickoff(date: string, matchNumber: number) {
-  return `${date}T${kickoffTimesEt[matchNumber] ?? "00:00"}:00-04:00`;
+  const kickoffTime = kickoffTimesEt[matchNumber] ?? "00:00";
+
+  if (kickoffTime === "00:00") {
+    const kickoffDate = new Date(`${date}T00:00:00-04:00`);
+    kickoffDate.setDate(kickoffDate.getDate() + 1);
+    const shiftedDate = kickoffDate.toISOString().slice(0, 10);
+
+    return `${shiftedDate}T00:00:00-04:00`;
+  }
+
+  return `${date}T${kickoffTime}:00-04:00`;
 }
 
 function groupFixtureToMatch(fixture: GroupFixtureSeed): Match {
