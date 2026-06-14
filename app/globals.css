@@ -3647,7 +3647,7 @@ p {
   }
 
   .prediction-bracket-node {
-    min-height: 74px;
+    min-height: 88px;
   }
 
   .bracket-match-node.has-left-connector::before,
@@ -3679,7 +3679,17 @@ p {
 
   .prediction-bracket-slot {
     grid-template-columns: minmax(0, 1fr) 2.65rem;
-    min-height: 24px;
+    min-height: 28px;
+  }
+
+  .prediction-bracket-match-meta {
+    gap: 0.18rem;
+    padding-bottom: 0.35rem;
+  }
+
+  .prediction-bracket-slot button {
+    padding-top: 0.28rem;
+    padding-bottom: 0.28rem;
   }
 
   .page-shell {
@@ -4193,12 +4203,22 @@ p {
   }
 
   .prediction-bracket-node {
-    min-height: 68px;
+    min-height: 82px;
   }
 
   .prediction-bracket-slot {
     grid-template-columns: minmax(0, 1fr) 2.35rem;
-    min-height: 22px;
+    min-height: 26px;
+  }
+
+  .prediction-bracket-match-meta {
+    gap: 0.18rem;
+    padding-bottom: 0.32rem;
+  }
+
+  .prediction-bracket-slot button {
+    padding-top: 0.24rem;
+    padding-bottom: 0.24rem;
   }
 
   .prediction-bracket-connector::before {
