@@ -2574,7 +2574,7 @@ p {
   min-width: 1260px;
   display: grid;
   grid-template-columns: 220px 42px 220px 42px 220px 42px 220px 42px 220px;
-  grid-template-rows: repeat(64, 18px);
+  grid-template-rows: repeat(64, 28px);
   align-items: center;
 }
 
@@ -2583,7 +2583,7 @@ p {
   z-index: 1;
   display: grid;
   align-content: start;
-  min-height: 52px;
+  min-height: 84px;
   overflow: hidden;
   padding: 0.35rem 0;
 }
@@ -2632,9 +2632,9 @@ p {
 
 .prediction-bracket-slot {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 3rem;
   align-items: stretch;
-  min-height: 22px;
+  min-height: 26px;
 }
 
 .prediction-bracket-slot.is-selected {
@@ -2646,7 +2646,7 @@ p {
   align-items: center;
   min-width: 0;
   width: 100%;
-  padding: 0;
+  padding: 0.2rem 0.55rem;
   border: 0;
   background: transparent;
   color: var(--text);
@@ -2741,8 +2741,8 @@ p {
 .prediction-bracket-connector::before {
   content: "";
   position: absolute;
-  top: 18px;
-  bottom: 18px;
+  top: 28px;
+  bottom: 28px;
   left: 50%;
   width: 1px;
   background: rgba(15, 118, 110, 0.28);
@@ -3638,12 +3638,16 @@ p {
   .prediction-bracket-tree {
     min-width: 990px;
     grid-template-columns: 180px 30px 180px 30px 180px 30px 180px 30px 180px;
-    grid-template-rows: repeat(64, 16px);
+    grid-template-rows: repeat(64, 24px);
   }
 
   .bracket-match-node,
   .prediction-bracket-node {
     min-height: 48px;
+  }
+
+  .prediction-bracket-node {
+    min-height: 74px;
   }
 
   .bracket-match-node.has-left-connector::before,
@@ -3665,12 +3669,17 @@ p {
 
   .bracket-connector::before,
   .prediction-bracket-connector::before {
-    top: 16px;
-    bottom: 16px;
+    top: 24px;
+    bottom: 24px;
   }
 
   .prediction-bracket-match-meta {
     font-size: 0.62rem;
+  }
+
+  .prediction-bracket-slot {
+    grid-template-columns: minmax(0, 1fr) 2.65rem;
+    min-height: 24px;
   }
 
   .page-shell {
@@ -4163,6 +4172,7 @@ p {
   .prediction-bracket-tree {
     min-width: 830px;
     grid-template-columns: 150px 24px 150px 24px 150px 24px 150px 24px 150px;
+    grid-template-rows: repeat(64, 22px);
   }
 
   .bracket-match-node.has-left-connector::before,
@@ -4180,6 +4190,20 @@ p {
   .bracket-match-node.has-right-connector::after,
   .prediction-bracket-node.has-right-connector::after {
     right: -24px;
+  }
+
+  .prediction-bracket-node {
+    min-height: 68px;
+  }
+
+  .prediction-bracket-slot {
+    grid-template-columns: minmax(0, 1fr) 2.35rem;
+    min-height: 22px;
+  }
+
+  .prediction-bracket-connector::before {
+    top: 22px;
+    bottom: 22px;
   }
 
   .site-header {
