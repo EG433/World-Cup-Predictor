@@ -1279,7 +1279,6 @@ export function EditPicksWorkspace({
           <label>
             Select group
             <select
-              disabled={preWorldCupLocked && !isViewingAnotherMember}
               value={selectedGroupId}
               onChange={(event) => setSelectedGroupId(event.target.value)}
             >
