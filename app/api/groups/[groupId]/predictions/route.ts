@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { matches } from "@/lib/mock-data";
+import { mergeMatchesWithOfficialResults } from "@/lib/official-results";
 import { predictionDeadline } from "@/lib/scoring";
 import { getPostgresPool, getUserFromSession, sessionCookieName } from "@/lib/server-auth";
 import { refreshOfficialResultsIfStale } from "@/lib/server-groups";
@@ -183,8 +184,9 @@ export async function GET(request: Request, { params }: PredictionRouteProps) {
       where match_id = any($1)`,
       [officialKnockoutSeedMatches.map((match) => match.id)],
     );
-    const officialResultsById = new Map(
-      officialResults.rows.map((row) => [row.match_id, row]),
+    const mergedOfficialKnockoutMatches = mergeMatchesWithOfficialResults(
+      officialKnockoutSeedMatches,
+      officialResults.rows,
     );
 
     return NextResponse.json({
@@ -199,9 +201,7 @@ export async function GET(request: Request, { params }: PredictionRouteProps) {
         id: viewedMember.user_id,
         username: viewedMember.username,
       },
-      officialKnockoutMatches: officialKnockoutSeedMatches.map((match) => {
-        const officialResult = officialResultsById.get(match.id);
-
+      officialKnockoutMatches: mergedOfficialKnockoutMatches.map((match) => {
         return {
           id: match.id,
           stage: match.stage,
@@ -211,14 +211,13 @@ export async function GET(request: Request, { params }: PredictionRouteProps) {
           city: match.city,
           homeSlotLabel: match.homeSlotLabel ?? null,
           awaySlotLabel: match.awaySlotLabel ?? null,
-          homeTeamId: officialResult?.home_team_id ?? null,
-          awayTeamId: officialResult?.away_team_id ?? null,
-          homeScore: officialResult?.home_score ?? null,
-          awayScore: officialResult?.away_score ?? null,
-          winnerTeamId: officialResult?.winner_team_id ?? null,
-          status: officialResult?.status ?? "scheduled",
-          sourceUpdatedAt:
-            officialResult?.source_updated_at ?? officialResult?.updated_at ?? null,
+          homeTeamId: match.homeTeamId ?? null,
+          awayTeamId: match.awayTeamId ?? null,
+          homeScore: match.homeScore ?? null,
+          awayScore: match.awayScore ?? null,
+          winnerTeamId: match.winnerTeamId ?? null,
+          status: match.status ?? "scheduled",
+          sourceUpdatedAt: match.sourceUpdatedAt ?? null,
         };
       }),
     });

@@ -1,5 +1,7 @@
+import { mergeMatchesWithOfficialResults, type OfficialMatchResultRow } from "@/lib/official-results";
 import { fifaScheduleSource, matches, teams } from "@/lib/mock-data";
 import { getPostgresPool } from "@/lib/server-auth";
+import type { Match } from "@/types/world-cup";
 
 export const fifaScoresFixturesSource =
   "https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/scores-fixtures";
@@ -33,7 +35,7 @@ type SyncProvider = {
   name: string;
   priority: number;
   getSourceUrls: () => string[];
-  parser: (payload: unknown) => NormalizedMatchResult[];
+  parser: (payload: unknown, scheduleMatches: Match[]) => NormalizedMatchResult[];
 };
 
 type ProviderResult = {
@@ -119,17 +121,19 @@ function matchIdForTeams({
   homeTeamId,
   awayTeamId,
   eventDate,
+  scheduleMatches,
 }: {
   homeTeamId?: string;
   awayTeamId?: string;
   eventDate?: string;
+  scheduleMatches: Match[];
 }) {
   if (!homeTeamId || !awayTeamId) {
     return undefined;
   }
 
   const eventDay = eventDate ? formatDateInTimeZone(new Date(eventDate), "America/New_York") : undefined;
-  const possibleMatches = matches.filter((match) => {
+  const possibleMatches = scheduleMatches.filter((match) => {
     const sameTeams =
       (match.homeTeamId === homeTeamId && match.awayTeamId === awayTeamId) ||
       (match.homeTeamId === awayTeamId && match.awayTeamId === homeTeamId);
@@ -140,6 +144,21 @@ function matchIdForTeams({
 
     return eventDay ? match.kickoff.slice(0, 10) === eventDay : true;
   });
+
+  if (possibleMatches.length <= 1) {
+    return possibleMatches[0]?.id;
+  }
+
+  if (eventDate) {
+    const eventTimestamp = new Date(eventDate).getTime();
+    const exactKickoffMatch = possibleMatches.find(
+      (match) => new Date(match.kickoff).getTime() === eventTimestamp,
+    );
+
+    if (exactKickoffMatch) {
+      return exactKickoffMatch.id;
+    }
+  }
 
   return possibleMatches[0]?.id;
 }
@@ -181,7 +200,7 @@ function parseConfiguredJsonPayload(payload: unknown) {
     .filter((result): result is NormalizedMatchResult => Boolean(result));
 }
 
-function parseEspnScoreboardPayload(payload: unknown) {
+function parseEspnScoreboardPayload(payload: unknown, scheduleMatches: Match[]) {
   const events = (payload as EspnScoreboardPayload).events ?? [];
 
   return events
@@ -195,6 +214,7 @@ function parseEspnScoreboardPayload(payload: unknown) {
         homeTeamId,
         awayTeamId,
         eventDate: event.date,
+        scheduleMatches,
       });
 
       if (!matchId) {
@@ -237,21 +257,10 @@ function parseEspnScoreboardPayload(payload: unknown) {
     .filter((result): result is NormalizedMatchResult => Boolean(result));
 }
 
-function formatEtDate(date: Date) {
-  return formatDateInTimeZone(date, "America/New_York");
-}
-
-function getScheduleDatesForSync(lookaheadDays = 10) {
-  const today = new Date();
-  const latestSyncDate = new Date(today);
-  latestSyncDate.setDate(latestSyncDate.getDate() + lookaheadDays);
-  const latestSyncDateEt = formatEtDate(latestSyncDate);
-
+function getScheduleDatesForSync() {
   return Array.from(
     new Set(
-      matches
-        .map((match) => match.kickoff.slice(0, 10))
-        .filter((matchDate) => matchDate <= latestSyncDateEt),
+      matches.map((match) => match.kickoff.slice(0, 10)),
     ),
   ).sort();
 }
@@ -358,6 +367,33 @@ function getSyncProviders(): SyncProvider[] {
   ];
 }
 
+function buildLookupScheduleMatches(resultRows: OfficialMatchResultRow[]) {
+  return mergeMatchesWithOfficialResults(matches, resultRows);
+}
+
+function mergeResultRowsForLookup(
+  existingRows: OfficialMatchResultRow[],
+  providerResults: ProviderResult[],
+) {
+  const mergedRows = new Map(existingRows.map((row) => [row.match_id, row]));
+
+  for (const providerResult of providerResults) {
+    mergedRows.set(providerResult.result.matchId, {
+      match_id: providerResult.result.matchId,
+      status: providerResult.result.status,
+      home_team_id: providerResult.result.homeTeamId,
+      away_team_id: providerResult.result.awayTeamId,
+      home_score: providerResult.result.homeScore,
+      away_score: providerResult.result.awayScore,
+      winner_team_id: providerResult.result.winnerTeamId,
+      source_updated_at: providerResult.result.sourceUpdatedAt,
+      updated_at: null,
+    });
+  }
+
+  return Array.from(mergedRows.values());
+}
+
 async function importResults(results: NormalizedMatchResult[], providerName: string) {
   const pool = await getPostgresPool();
   let importedCount = 0;
@@ -407,9 +443,12 @@ async function importResults(results: NormalizedMatchResult[], providerName: str
 export async function syncOfficialFifaData() {
   const pool = await getPostgresPool();
   const providers = getSyncProviders();
+  const existingResults = await pool.query<OfficialMatchResultRow>("select * from match_results");
+  let scheduleMatchesForLookup = buildLookupScheduleMatches(existingResults.rows);
   const attemptedSources: string[] = [];
   const providerMessages: string[] = [];
   const bestResults = new Map<string, ProviderResult>();
+  const successfulPayloads: Array<{ provider: SyncProvider; payload: unknown }> = [];
 
   for (const provider of providers) {
     const sourceUrls = provider.getSourceUrls();
@@ -431,7 +470,8 @@ export async function syncOfficialFifaData() {
         }
 
         const payload = await response.json();
-        const results = provider.parser(payload);
+        successfulPayloads.push({ provider, payload });
+        const results = provider.parser(payload, scheduleMatchesForLookup);
 
         for (const result of results) {
           providerResults.set(result.matchId, result);
@@ -470,6 +510,27 @@ export async function syncOfficialFifaData() {
         values ($1, 'error', $2)`,
         [sourceUrls[0] ?? provider.name, message],
       );
+    }
+  }
+
+  if (bestResults.size > 0 && successfulPayloads.length > 0) {
+    scheduleMatchesForLookup = buildLookupScheduleMatches(
+      mergeResultRowsForLookup(existingResults.rows, Array.from(bestResults.values())),
+    );
+
+    for (const { provider, payload } of successfulPayloads) {
+      const refreshedResults = provider.parser(payload, scheduleMatchesForLookup);
+
+      for (const result of refreshedResults) {
+        bestResults.set(
+          result.matchId,
+          choosePreferredResult(bestResults.get(result.matchId), {
+            providerName: provider.name,
+            providerPriority: provider.priority,
+            result,
+          }),
+        );
+      }
     }
   }
 
