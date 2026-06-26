@@ -241,14 +241,17 @@ function formatEtDate(date: Date) {
   return formatDateInTimeZone(date, "America/New_York");
 }
 
-function getScheduleDatesThroughToday() {
-  const todayEt = formatEtDate(new Date());
+function getScheduleDatesForSync(lookaheadDays = 10) {
+  const today = new Date();
+  const latestSyncDate = new Date(today);
+  latestSyncDate.setDate(latestSyncDate.getDate() + lookaheadDays);
+  const latestSyncDateEt = formatEtDate(latestSyncDate);
 
   return Array.from(
     new Set(
       matches
         .map((match) => match.kickoff.slice(0, 10))
-        .filter((matchDate) => matchDate <= todayEt),
+        .filter((matchDate) => matchDate <= latestSyncDateEt),
     ),
   ).sort();
 }
@@ -259,7 +262,7 @@ function toEspnDateParam(date: string) {
 
 function getEspnScoreboardUrls() {
   const baseUrl = process.env.ESPN_SCOREBOARD_URL || espnWorldCupScoreboardSource;
-  const dates = getScheduleDatesThroughToday();
+  const dates = getScheduleDatesForSync();
 
   if (dates.length === 0) {
     return [baseUrl];

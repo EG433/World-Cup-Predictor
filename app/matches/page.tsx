@@ -79,7 +79,7 @@ export default async function MatchesPage() {
         eyebrow="Elimination path"
         description=""
       >
-        <BracketView />
+        <BracketView matches={scheduleMatches} />
       </SectionCard>
 
       <section className="standings-section">

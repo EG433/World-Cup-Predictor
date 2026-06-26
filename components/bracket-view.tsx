@@ -1,4 +1,4 @@
-import { matches } from "@/lib/mock-data";
+import { getTeamById, matches as seedMatches } from "@/lib/mock-data";
 import { Match, MatchStage } from "@/types/world-cup";
 
 const bracketStages = [
@@ -11,6 +11,7 @@ const bracketStages = [
 
 interface BracketViewProps {
   interactive?: boolean;
+  matches?: Match[];
 }
 
 const stageLabel: Record<(typeof bracketStages)[number], string> = {
@@ -21,10 +22,6 @@ const stageLabel: Record<(typeof bracketStages)[number], string> = {
   Final: "Final",
 };
 
-function getStageMatches(stage: MatchStage) {
-  return matches.filter((match) => match.stage === stage);
-}
-
 function getRowStart(stageIndex: number, slotIndex: number) {
   const spacingByStage = [4, 8, 16, 32, 64];
   const offsetByStage = [1, 3, 7, 15, 31];
@@ -33,9 +30,11 @@ function getRowStart(stageIndex: number, slotIndex: number) {
 }
 
 function getTeamLabel(match: Match, side: "home" | "away") {
-  return side === "home"
-    ? match.homeSlotLabel ?? "TBD"
-    : match.awaySlotLabel ?? "TBD";
+  const teamId = side === "home" ? match.homeTeamId : match.awayTeamId;
+  const slotLabel = side === "home" ? match.homeSlotLabel : match.awaySlotLabel;
+  const team = teamId ? getTeamById(teamId) : undefined;
+
+  return team?.name ?? slotLabel ?? "TBD";
 }
 
 function BracketMatchCard({
@@ -89,9 +88,11 @@ function BracketMatchCard({
   );
 }
 
-export function BracketView({ interactive = false }: BracketViewProps) {
-  const stageMatches = bracketStages.map((stage) => getStageMatches(stage));
-  const thirdPlaceMatch = getStageMatches("Third Place")[0];
+export function BracketView({ interactive = false, matches = seedMatches }: BracketViewProps) {
+  const getStageMatchesFromSource = (stage: MatchStage) =>
+    matches.filter((match) => match.stage === stage);
+  const stageMatches = bracketStages.map((stage) => getStageMatchesFromSource(stage));
+  const thirdPlaceMatch = getStageMatchesFromSource("Third Place")[0];
 
   return (
     <div className="bracket-shell" aria-label="World Cup knockout bracket">
