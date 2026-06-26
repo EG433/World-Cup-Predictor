@@ -1,8 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { matches, tournamentGroups } from "@/lib/mock-data";
-import { computeOfficialStandingsByGroup, type OfficialMatchResultRow } from "@/lib/official-results";
+import { matches } from "@/lib/mock-data";
 import { predictionDeadline } from "@/lib/scoring";
 import { getPostgresPool, getUserFromSession, sessionCookieName } from "@/lib/server-auth";
 import { refreshOfficialResultsIfStale } from "@/lib/server-groups";
@@ -87,76 +86,6 @@ function mergeMatchScopedValues(
   }
 
   return merged;
-}
-
-function getWinnerMatchIdFromSlot(slotLabel?: string | null) {
-  const match = slotLabel?.match(/Winner match (\d+)/i);
-  return match ? `m${match[1]}` : undefined;
-}
-
-function getRunnerUpMatchIdFromSlot(slotLabel?: string | null) {
-  const match = slotLabel?.match(/Runner-up match (\d+)/i);
-  return match ? `m${match[1]}` : undefined;
-}
-
-function getExactGroupSlot(slotLabel?: string | null) {
-  if (!slotLabel) {
-    return null;
-  }
-
-  const normalized = slotLabel.trim();
-  const winnerMatch = normalized.match(/^Group ([A-L]) winners$/i);
-  if (winnerMatch) {
-    return { groupId: winnerMatch[1].toLowerCase(), position: 0 as const };
-  }
-
-  const runnerUpMatch = normalized.match(/^Group ([A-L]) runners-up$/i);
-  if (runnerUpMatch) {
-    return { groupId: runnerUpMatch[1].toLowerCase(), position: 1 as const };
-  }
-
-  const thirdPlaceMatch = normalized.match(/^Group ([A-L]) third place$/i);
-  if (thirdPlaceMatch) {
-    return { groupId: thirdPlaceMatch[1].toLowerCase(), position: 2 as const };
-  }
-
-  return null;
-}
-
-function isFinalMatchResult(row?: OfficialMatchResultRow) {
-  return (
-    row?.status === "final" &&
-    typeof row.home_score === "number" &&
-    typeof row.away_score === "number"
-  );
-}
-
-function resolveOfficialSlotTeamId(
-  slotLabel: string | null | undefined,
-  rankings: Record<string, string[]>,
-  winners: Record<string, string>,
-  runnerUps: Record<string, string>,
-) {
-  if (!slotLabel) {
-    return null;
-  }
-
-  const winnerMatchId = getWinnerMatchIdFromSlot(slotLabel);
-  if (winnerMatchId) {
-    return winners[winnerMatchId] ?? null;
-  }
-
-  const runnerUpMatchId = getRunnerUpMatchIdFromSlot(slotLabel);
-  if (runnerUpMatchId) {
-    return runnerUps[runnerUpMatchId] ?? null;
-  }
-
-  const exactGroupSlot = getExactGroupSlot(slotLabel);
-  if (!exactGroupSlot) {
-    return null;
-  }
-
-  return rankings[exactGroupSlot.groupId]?.[exactGroupSlot.position] ?? null;
 }
 
 async function requireGroupMember(pool: Awaited<ReturnType<typeof ensurePredictionDraftsTable>>, routeGroupId: string, userId: string) {
@@ -250,55 +179,13 @@ export async function GET(request: Request, { params }: PredictionRouteProps) {
         winner_team_id,
         source_updated_at,
         updated_at
-      from match_results`,
+      from match_results
+      where match_id = any($1)`,
+      [officialKnockoutSeedMatches.map((match) => match.id)],
     );
     const officialResultsById = new Map(
       officialResults.rows.map((row) => [row.match_id, row]),
     );
-    const officialStandingsByGroup = computeOfficialStandingsByGroup(officialResults.rows);
-    const officialRankings = Object.fromEntries(
-      tournamentGroups.map((group) => [
-        group.id,
-        officialStandingsByGroup[group.id].map((standing) => standing.teamId),
-      ]),
-    ) as Record<string, string[]>;
-    const officialKnockoutWinners: Record<string, string> = {};
-    const officialKnockoutRunnerUps: Record<string, string> = {};
-
-    for (const match of officialKnockoutSeedMatches) {
-      const resultRow = officialResultsById.get(match.id);
-
-      if (!isFinalMatchResult(resultRow) || !resultRow?.winner_team_id) {
-        continue;
-      }
-
-      const resolvedHomeTeamId =
-        resultRow.home_team_id ??
-        resolveOfficialSlotTeamId(
-          match.homeSlotLabel ?? null,
-          officialRankings,
-          officialKnockoutWinners,
-          officialKnockoutRunnerUps,
-        );
-      const resolvedAwayTeamId =
-        resultRow.away_team_id ??
-        resolveOfficialSlotTeamId(
-          match.awaySlotLabel ?? null,
-          officialRankings,
-          officialKnockoutWinners,
-          officialKnockoutRunnerUps,
-        );
-
-      officialKnockoutWinners[match.id] = resultRow.winner_team_id;
-
-      if (resolvedHomeTeamId && resolvedAwayTeamId) {
-        if (resultRow.winner_team_id === resolvedHomeTeamId) {
-          officialKnockoutRunnerUps[match.id] = resolvedAwayTeamId;
-        } else if (resultRow.winner_team_id === resolvedAwayTeamId) {
-          officialKnockoutRunnerUps[match.id] = resolvedHomeTeamId;
-        }
-      }
-    }
 
     return NextResponse.json({
       draft: result.rows[0]
@@ -314,22 +201,6 @@ export async function GET(request: Request, { params }: PredictionRouteProps) {
       },
       officialKnockoutMatches: officialKnockoutSeedMatches.map((match) => {
         const officialResult = officialResultsById.get(match.id);
-        const resolvedHomeTeamId =
-          officialResult?.home_team_id ??
-          resolveOfficialSlotTeamId(
-            match.homeSlotLabel ?? null,
-            officialRankings,
-            officialKnockoutWinners,
-            officialKnockoutRunnerUps,
-          );
-        const resolvedAwayTeamId =
-          officialResult?.away_team_id ??
-          resolveOfficialSlotTeamId(
-            match.awaySlotLabel ?? null,
-            officialRankings,
-            officialKnockoutWinners,
-            officialKnockoutRunnerUps,
-          );
 
         return {
           id: match.id,
@@ -340,8 +211,8 @@ export async function GET(request: Request, { params }: PredictionRouteProps) {
           city: match.city,
           homeSlotLabel: match.homeSlotLabel ?? null,
           awaySlotLabel: match.awaySlotLabel ?? null,
-          homeTeamId: resolvedHomeTeamId,
-          awayTeamId: resolvedAwayTeamId,
+          homeTeamId: officialResult?.home_team_id ?? null,
+          awayTeamId: officialResult?.away_team_id ?? null,
           homeScore: officialResult?.home_score ?? null,
           awayScore: officialResult?.away_score ?? null,
           winnerTeamId: officialResult?.winner_team_id ?? null,
