@@ -437,7 +437,6 @@ export function EditPicksWorkspace({
   const [bracketScores, setBracketScores] = useState<MatchScores>({});
   const [bracketWinners, setBracketWinners] = useState<BracketWinners>({});
   const [liveKnockoutScores, setLiveKnockoutScores] = useState<MatchScores>({});
-  const [liveKnockoutWinners, setLiveKnockoutWinners] = useState<BracketWinners>({});
   const [currentTimestamp, setCurrentTimestamp] = useState(() => Date.now());
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [saveMessage, setSaveMessage] = useState("");
@@ -607,10 +606,6 @@ export function EditPicksWorkspace({
             setLiveKnockoutScores(predictionData.liveKnockoutScores as MatchScores);
           }
 
-          if (isObjectRecord(predictionData.liveKnockoutWinners)) {
-            setLiveKnockoutWinners(predictionData.liveKnockoutWinners as BracketWinners);
-          }
-
           setSaveMessage(
             data.draft?.updatedAt
               ? `${data.viewedMember?.id && data.viewedMember.id !== data.currentUserId ? `${data.viewedMember.username}'s` : "Your"} draft loaded from ${new Date(data.draft.updatedAt).toLocaleString()}.`
@@ -662,7 +657,6 @@ export function EditPicksWorkspace({
       bracketScores,
       bracketWinners,
       liveKnockoutScores,
-      liveKnockoutWinners,
       savedAt: new Date().toISOString(),
     };
 
@@ -796,12 +790,6 @@ export function EditPicksWorkspace({
   }
 
   function getLiveKnockoutSelectedWinner(match: OfficialKnockoutMatch) {
-    const manualWinner = liveKnockoutWinners[match.id];
-
-    if (manualWinner) {
-      return manualWinner;
-    }
-
     const homeScore = liveKnockoutScores[match.id]?.home;
     const awayScore = liveKnockoutScores[match.id]?.away;
 
@@ -833,7 +821,6 @@ export function EditPicksWorkspace({
   function renderOfficialKnockoutMatch(match: OfficialKnockoutMatch) {
     const homeTeam = getTeamById(match.homeTeamId ?? "");
     const awayTeam = getTeamById(match.awayTeamId ?? "");
-    const selectedWinner = getLiveKnockoutSelectedWinner(match);
     const matchLocked = isOfficialKnockoutMatchLocked(match);
     const interactionLocked = matchLocked || isViewingAnotherMember;
     const actualResultText =
@@ -860,27 +847,14 @@ export function EditPicksWorkspace({
         </div>
 
         <div className="official-knockout-slots">
-          <div
-            className={`official-knockout-slot ${
-              homeTeam && selectedWinner === homeTeam.id ? "is-selected" : ""
-            }`}
-          >
-            <button
-              type="button"
-              disabled={!homeTeam || interactionLocked}
-              onClick={() =>
-                homeTeam
-                  ? setLiveKnockoutWinners((current) => ({ ...current, [match.id]: homeTeam.id }))
-                  : undefined
-              }
-              aria-pressed={homeTeam ? selectedWinner === homeTeam.id : undefined}
-            >
+          <div className="official-knockout-slot">
+            <div className="official-knockout-team">
               {homeTeam ? (
                 <TeamBadge team={homeTeam} />
               ) : (
                 <span>{match.homeSlotLabel ?? "Official team TBD"}</span>
               )}
-            </button>
+            </div>
             <input
               type="number"
               min="0"
@@ -894,27 +868,14 @@ export function EditPicksWorkspace({
             />
           </div>
 
-          <div
-            className={`official-knockout-slot ${
-              awayTeam && selectedWinner === awayTeam.id ? "is-selected" : ""
-            }`}
-          >
-            <button
-              type="button"
-              disabled={!awayTeam || interactionLocked}
-              onClick={() =>
-                awayTeam
-                  ? setLiveKnockoutWinners((current) => ({ ...current, [match.id]: awayTeam.id }))
-                  : undefined
-              }
-              aria-pressed={awayTeam ? selectedWinner === awayTeam.id : undefined}
-            >
+          <div className="official-knockout-slot">
+            <div className="official-knockout-team">
               {awayTeam ? (
                 <TeamBadge team={awayTeam} />
               ) : (
                 <span>{match.awaySlotLabel ?? "Official team TBD"}</span>
               )}
-            </button>
+            </div>
             <input
               type="number"
               min="0"
@@ -931,6 +892,7 @@ export function EditPicksWorkspace({
 
         <div className="official-knockout-card-footer">
           <span>{`Winner points: ${knockoutPointValues[match.stage] ?? 0}`}</span>
+          <span>Advancing side is based on your 120-minute score only.</span>
           {isViewingAnotherMember ? (
             <span>Read-only member view</span>
           ) : matchLocked ? (
@@ -1467,9 +1429,8 @@ export function EditPicksWorkspace({
           <div>
             <h2>Official knockout match picks</h2>
             <p className="muted-text">
-              As official knockout matchups are confirmed, predict the score for each real fixture
-              and click the team you think will advance. If you predict a draw, still choose the
-              advancing team.
+              As official knockout matchups are confirmed, predict the 120-minute score for each
+              real fixture. Advancing picks come from the score only, with penalties ignored.
             </p>
           </div>
         </div>

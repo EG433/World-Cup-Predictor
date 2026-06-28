@@ -86,7 +86,9 @@ export function ScoringRulesPanel() {
               Correctly predict the number of away team goals: +{correctAwayGoalsPoints} point
             </li>
             <li>Exact score bonus: +{exactScoreBonusPoints} points</li>
-            <li>Correct advancing team: round points still apply</li>
+            <li>Advancing side is based on the 120-minute score only</li>
+            <li>Penalty shootouts are ignored for official knockout scoring</li>
+            <li>Round winner points only apply when your score implies the same advancing team</li>
           </ul>
         </article>
 
