@@ -2,7 +2,7 @@ import { pbkdf2, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 
 import { syncOfficialFifaDataIfStale } from "@/lib/fifa-sync";
-import { calculatePredictionPoints, MatchResultRow } from "@/lib/live-scoring";
+import { calculatePredictionPointSummary, MatchResultRow } from "@/lib/live-scoring";
 import { getPostgresPool, SafeUser } from "@/lib/server-auth";
 import { FriendPool, PredictionScoringMode } from "@/types/world-cup";
 
@@ -236,13 +236,19 @@ function rowsToPools(rows: GroupRow[], resultRows: MatchResultRow[]) {
       } satisfies FriendPool);
 
     if (row.member_id && row.username && row.supported_team_id) {
+      const scoreSummary = row.prediction_data
+        ? calculatePredictionPointSummary(row.prediction_data, resultRows)
+        : { selectionOnePoints: 0, selectionTwoPoints: 0, totalPoints: 0 };
+
       pool.members.push({
         id: row.member_id,
         displayName: row.username,
         username: row.username,
         supportedTeamId: row.supported_team_id,
         predictionStatus: row.has_draft ? "In progress" : "Not started",
-        points: row.prediction_data ? calculatePredictionPoints(row.prediction_data, resultRows) : 0,
+        points: scoreSummary.totalPoints,
+        selectionOnePoints: scoreSummary.selectionOnePoints,
+        selectionTwoPoints: scoreSummary.selectionTwoPoints,
       });
     }
 

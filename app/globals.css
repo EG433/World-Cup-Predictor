@@ -2495,27 +2495,14 @@ p {
   background: #fff;
 }
 
-.official-knockout-slot.is-selected {
-  border-color: rgba(15, 118, 110, 0.38);
-  background: rgba(15, 118, 110, 0.05);
-}
-
-.official-knockout-slot button {
+.official-knockout-team {
   display: flex;
   align-items: center;
   width: 100%;
   min-width: 0;
   padding: 0.7rem 0.8rem;
-  border: 0;
-  background: transparent;
   text-align: left;
   color: inherit;
-  cursor: pointer;
-}
-
-.official-knockout-slot button:disabled {
-  cursor: not-allowed;
-  color: var(--muted);
 }
 
 .official-knockout-slot input {
@@ -2529,7 +2516,7 @@ p {
   padding: 0.65rem 0.35rem;
 }
 
-.official-knockout-slot .team-badge {
+.official-knockout-team .team-badge {
   min-width: 0;
 }
 
@@ -3335,6 +3322,13 @@ p {
 
 .group-member-detail-row {
   padding: 0.85rem 0;
+}
+
+.group-member-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
 }
 
 .group-member-status {

@@ -49,7 +49,9 @@ export function GroupMembersHub({ groupId, initialPool }: GroupMembersHubProps) 
   }, [groupId]);
 
   const pool = databasePool ?? initialPool;
-  const members = pool?.members ?? [];
+  const members = [...(pool?.members ?? [])].sort(
+    (firstMember, secondMember) => (secondMember.points ?? 0) - (firstMember.points ?? 0),
+  );
 
   if (!pool) {
     return (
@@ -90,18 +92,26 @@ export function GroupMembersHub({ groupId, initialPool }: GroupMembersHubProps) 
         </div>
 
         <div className="member-score-list group-members-detail-list">
-          {members.map((member) => {
+          {members.map((member, index) => {
             const team = getTeamById(member.supportedTeamId);
+            const selectionOnePoints = member.selectionOnePoints ?? 0;
+            const selectionTwoPoints = member.selectionTwoPoints ?? 0;
+            const totalPoints = member.points ?? selectionOnePoints + selectionTwoPoints;
 
             return (
               <article key={member.id} className="member-score-row group-member-detail-row">
-                <div>
-                  <strong>{member.username}</strong>
-                  <span>{team ? `Supports ${team.name}` : "Supported team not chosen"}</span>
+                <div className="group-member-identity">
+                  <span className="member-rank">{index + 1}</span>
+                  <div>
+                    <strong>{member.username}</strong>
+                    <span>{team ? `Supports ${team.name}` : "Supported team not chosen"}</span>
+                  </div>
                 </div>
                 <div className="group-member-status">
                   <span>{member.predictionStatus}</span>
-                  <strong>{member.points ?? 0} pts</strong>
+                  <strong>
+                    {totalPoints} pts ({selectionOnePoints} + {selectionTwoPoints})
+                  </strong>
                 </div>
                 <Link
                   href={`/groups/${pool.id}/predictions?memberId=${encodeURIComponent(member.id)}`}

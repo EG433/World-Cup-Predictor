@@ -25,6 +25,12 @@ export type MatchResultRow = {
   winner_team_id: string | null;
 };
 
+export type PredictionPointsSummary = {
+  selectionOnePoints: number;
+  selectionTwoPoints: number;
+  totalPoints: number;
+};
+
 type PredictionDraftData = {
   groupScores?: MatchScores;
   bracketWinners?: BracketWinners;
@@ -156,15 +162,9 @@ function getUpsetBonusForResult(matchId: string, winnerTeamId?: string | null) {
 }
 
 function getPredictedWinnerFromScore(
-  matchId: string,
   predictedScore: { home: number; away: number } | null,
-  storedWinnerTeamId: string | undefined,
   result: MatchResultRow,
 ) {
-  if (storedWinnerTeamId) {
-    return storedWinnerTeamId;
-  }
-
   if (!predictedScore || predictedScore.home === predictedScore.away) {
     return undefined;
   }
@@ -176,17 +176,34 @@ function getPredictedWinnerFromScore(
   return predictedScore.home > predictedScore.away ? result.home_team_id : result.away_team_id;
 }
 
-export function calculatePredictionPoints(
+function getActualKnockoutWinnerFromScore(result: MatchResultRow) {
+  if (
+    typeof result.home_score !== "number" ||
+    typeof result.away_score !== "number" ||
+    !result.home_team_id ||
+    !result.away_team_id
+  ) {
+    return undefined;
+  }
+
+  if (result.home_score === result.away_score) {
+    return undefined;
+  }
+
+  return result.home_score > result.away_score ? result.home_team_id : result.away_team_id;
+}
+
+export function calculatePredictionPointSummary(
   draftData: unknown,
   resultRows: MatchResultRow[],
-) {
+) : PredictionPointsSummary {
   const prediction = (draftData && typeof draftData === "object" ? draftData : {}) as PredictionDraftData;
   const groupScores = prediction.groupScores ?? {};
   const bracketWinners = prediction.bracketWinners ?? {};
   const liveKnockoutScores = prediction.liveKnockoutScores ?? {};
-  const liveKnockoutWinners = prediction.liveKnockoutWinners ?? {};
   const results = resultMapFromRows(resultRows);
-  let points = 0;
+  let selectionOnePoints = 0;
+  let selectionTwoPoints = 0;
 
   for (const match of matches.filter((entry) => entry.stage === "Group Stage")) {
     const result = results.get(match.id);
@@ -199,11 +216,11 @@ export function calculatePredictionPoints(
     const predictedOutcome = getOutcome(predictedScore.home, predictedScore.away);
     const actualOutcome = getOutcome(actualHome, actualAway);
 
-    if (predictedOutcome === actualOutcome) points += correctResultPoints;
-    if (predictedScore.home === actualHome) points += correctHomeGoalsPoints;
-    if (predictedScore.away === actualAway) points += correctAwayGoalsPoints;
+    if (predictedOutcome === actualOutcome) selectionOnePoints += correctResultPoints;
+    if (predictedScore.home === actualHome) selectionOnePoints += correctHomeGoalsPoints;
+    if (predictedScore.away === actualAway) selectionOnePoints += correctAwayGoalsPoints;
     if (predictedScore.home === actualHome && predictedScore.away === actualAway) {
-      points += exactScoreBonusPoints;
+      selectionOnePoints += exactScoreBonusPoints;
     }
 
     const predictedWinner =
@@ -213,7 +230,7 @@ export function calculatePredictionPoints(
           ? match.awayTeamId
           : undefined;
     if (predictedOutcome === actualOutcome) {
-      points += getUpsetBonusForResult(match.id, predictedWinner);
+      selectionOnePoints += getUpsetBonusForResult(match.id, predictedWinner);
     }
   }
 
@@ -234,7 +251,9 @@ export function calculatePredictionPoints(
     );
 
     predictedRanking.forEach((teamId, index) => {
-      if (actualRanking[index] === teamId) points += groupRankingPositionPoints[index] ?? 0;
+      if (actualRanking[index] === teamId) {
+        selectionOnePoints += groupRankingPositionPoints[index] ?? 0;
+      }
     });
 
     const predictedTopTwo = predictedRanking.slice(0, 2);
@@ -245,14 +264,14 @@ export function calculatePredictionPoints(
       predictedTopTwo[0] === actualTopTwo[1] &&
       predictedTopTwo[1] === actualTopTwo[0];
     if (swappedTopTwo) {
-      points += correctTopTwoSwappedBonus;
+      selectionOnePoints += correctTopTwoSwappedBonus;
     }
 
     const exactGroupOrder =
       predictedRanking.length === actualRanking.length &&
       predictedRanking.every((teamId, index) => actualRanking[index] === teamId);
     if (exactGroupOrder) {
-      points += exactGroupOrderBonus;
+      selectionOnePoints += exactGroupOrderBonus;
     }
   }
 
@@ -262,8 +281,8 @@ export function calculatePredictionPoints(
 
     if (!result || !pickedWinner || pickedWinner !== result.winner_team_id) continue;
 
-    points += knockoutPointValues[match.stage] ?? 0;
-    points += getUpsetBonusForResult(match.id, pickedWinner);
+    selectionOnePoints += knockoutPointValues[match.stage] ?? 0;
+    selectionOnePoints += getUpsetBonusForResult(match.id, pickedWinner);
   }
 
   for (const match of matches.filter(
@@ -278,23 +297,31 @@ export function calculatePredictionPoints(
 
     const actualHome = result.home_score as number;
     const actualAway = result.away_score as number;
-    const predictedWinner = getPredictedWinnerFromScore(
-      match.id,
-      predictedScore,
-      liveKnockoutWinners[match.id],
-      result,
-    );
+    const predictedWinner = getPredictedWinnerFromScore(predictedScore, result);
+    const actualWinner = getActualKnockoutWinnerFromScore(result);
 
-    if (predictedScore.home === actualHome) points += correctHomeGoalsPoints;
-    if (predictedScore.away === actualAway) points += correctAwayGoalsPoints;
+    if (predictedScore.home === actualHome) selectionTwoPoints += correctHomeGoalsPoints;
+    if (predictedScore.away === actualAway) selectionTwoPoints += correctAwayGoalsPoints;
     if (predictedScore.home === actualHome && predictedScore.away === actualAway) {
-      points += exactScoreBonusPoints;
+      selectionTwoPoints += exactScoreBonusPoints;
     }
 
-    if (predictedWinner && predictedWinner === result.winner_team_id) {
-      points += knockoutPointValues[match.stage] ?? 0;
+    if (predictedWinner && actualWinner && predictedWinner === actualWinner) {
+      selectionTwoPoints += knockoutPointValues[match.stage] ?? 0;
+      selectionTwoPoints += getUpsetBonusForResult(match.id, predictedWinner);
     }
   }
 
-  return points;
+  return {
+    selectionOnePoints,
+    selectionTwoPoints,
+    totalPoints: selectionOnePoints + selectionTwoPoints,
+  };
+}
+
+export function calculatePredictionPoints(
+  draftData: unknown,
+  resultRows: MatchResultRow[],
+) {
+  return calculatePredictionPointSummary(draftData, resultRows).totalPoints;
 }

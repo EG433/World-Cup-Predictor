@@ -77,6 +77,8 @@ export interface PoolMember {
   supportedTeamId: string;
   predictionStatus: "Not started" | "In progress" | "Submitted";
   points?: number;
+  selectionOnePoints?: number;
+  selectionTwoPoints?: number;
 }
 
 export interface FriendPool {
