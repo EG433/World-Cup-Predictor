@@ -133,6 +133,7 @@ function matchIdForTeams({
   }
 
   const eventDay = eventDate ? formatDateInTimeZone(new Date(eventDate), "America/New_York") : undefined;
+  const eventTimestamp = eventDate ? new Date(eventDate).getTime() : undefined;
   const possibleMatches = scheduleMatches.filter((match) => {
     const sameTeams =
       (match.homeTeamId === homeTeamId && match.awayTeamId === awayTeamId) ||
@@ -149,14 +150,47 @@ function matchIdForTeams({
     return possibleMatches[0]?.id;
   }
 
-  if (eventDate) {
-    const eventTimestamp = new Date(eventDate).getTime();
+  if (eventTimestamp) {
     const exactKickoffMatch = possibleMatches.find(
       (match) => new Date(match.kickoff).getTime() === eventTimestamp,
     );
 
     if (exactKickoffMatch) {
       return exactKickoffMatch.id;
+    }
+  }
+
+  if (eventTimestamp) {
+    const kickoffCandidates = scheduleMatches.filter(
+      (match) =>
+        match.stage !== "Group Stage" &&
+        new Date(match.kickoff).getTime() === eventTimestamp,
+    );
+
+    const rankedCandidates = kickoffCandidates
+      .map((match) => {
+        const knownTeams = [match.homeTeamId, match.awayTeamId].filter(Boolean);
+        const knownTeamMatches = knownTeams.filter(
+          (teamId) => teamId === homeTeamId || teamId === awayTeamId,
+        ).length;
+
+        return {
+          match,
+          knownTeamMatches,
+        };
+      })
+      .sort((first, second) => second.knownTeamMatches - first.knownTeamMatches);
+
+    if (rankedCandidates.length === 1) {
+      return rankedCandidates[0].match.id;
+    }
+
+    if (
+      rankedCandidates.length > 1 &&
+      rankedCandidates[0].knownTeamMatches > rankedCandidates[1].knownTeamMatches &&
+      rankedCandidates[0].knownTeamMatches > 0
+    ) {
+      return rankedCandidates[0].match.id;
     }
   }
 
