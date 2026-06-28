@@ -181,8 +181,7 @@ export async function GET(request: Request, { params }: PredictionRouteProps) {
         source_updated_at,
         updated_at
       from match_results
-      where match_id = any($1)`,
-      [officialKnockoutSeedMatches.map((match) => match.id)],
+      order by match_id`,
     );
     const mergedOfficialKnockoutMatches = mergeMatchesWithOfficialResults(
       officialKnockoutSeedMatches,
