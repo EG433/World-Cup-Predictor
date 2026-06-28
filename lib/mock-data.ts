@@ -180,27 +180,29 @@ type KnockoutFixtureSeed = {
   stage: MatchStage;
   homeSlotLabel: string;
   awaySlotLabel: string;
+  homeTeamId?: string;
+  awayTeamId?: string;
   venue: string;
   city: string;
 };
 
 const knockoutFixtureSeed: KnockoutFixtureSeed[] = [
-  { matchNumber: 73, date: "2026-06-28", stage: "Round of 32", homeSlotLabel: "Group A runners-up", awaySlotLabel: "Group B runners-up", venue: "Los Angeles Stadium", city: "Los Angeles" },
-  { matchNumber: 74, date: "2026-06-29", stage: "Round of 32", homeSlotLabel: "Group E winners", awaySlotLabel: "Group A/B/C/D/F third place", venue: "Boston Stadium", city: "Boston" },
-  { matchNumber: 75, date: "2026-06-29", stage: "Round of 32", homeSlotLabel: "Group F winners", awaySlotLabel: "Group C runners-up", venue: "Estadio Monterrey", city: "Monterrey" },
-  { matchNumber: 76, date: "2026-06-29", stage: "Round of 32", homeSlotLabel: "Group C winners", awaySlotLabel: "Group F runners-up", venue: "Houston Stadium", city: "Houston" },
-  { matchNumber: 77, date: "2026-06-30", stage: "Round of 32", homeSlotLabel: "Group I winners", awaySlotLabel: "Group C/D/F/G/H third place", venue: "New York New Jersey Stadium", city: "New York / New Jersey" },
-  { matchNumber: 78, date: "2026-06-30", stage: "Round of 32", homeSlotLabel: "Group E runners-up", awaySlotLabel: "Group I runners-up", venue: "Dallas Stadium", city: "Dallas" },
-  { matchNumber: 79, date: "2026-06-30", stage: "Round of 32", homeSlotLabel: "Group A winners", awaySlotLabel: "Group C/E/F/H/I third place", venue: "Mexico City Stadium", city: "Mexico City" },
-  { matchNumber: 80, date: "2026-07-01", stage: "Round of 32", homeSlotLabel: "Group L winners", awaySlotLabel: "Group E/H/I/J/K third place", venue: "Atlanta Stadium", city: "Atlanta" },
-  { matchNumber: 81, date: "2026-07-01", stage: "Round of 32", homeSlotLabel: "Group D winners", awaySlotLabel: "Group B/E/F/I/J third place", venue: "San Francisco Bay Area Stadium", city: "San Francisco Bay Area" },
-  { matchNumber: 82, date: "2026-07-01", stage: "Round of 32", homeSlotLabel: "Group G winners", awaySlotLabel: "Group A/E/H/I/J third place", venue: "Seattle Stadium", city: "Seattle" },
-  { matchNumber: 83, date: "2026-07-02", stage: "Round of 32", homeSlotLabel: "Group K runners-up", awaySlotLabel: "Group L runners-up", venue: "Toronto Stadium", city: "Toronto" },
-  { matchNumber: 84, date: "2026-07-02", stage: "Round of 32", homeSlotLabel: "Group H winners", awaySlotLabel: "Group J runners-up", venue: "Los Angeles Stadium", city: "Los Angeles" },
-  { matchNumber: 85, date: "2026-07-02", stage: "Round of 32", homeSlotLabel: "Group B winners", awaySlotLabel: "Group E/F/G/I/J third place", venue: "BC Place Vancouver", city: "Vancouver" },
-  { matchNumber: 86, date: "2026-07-03", stage: "Round of 32", homeSlotLabel: "Group J winners", awaySlotLabel: "Group H runners-up", venue: "Miami Stadium", city: "Miami" },
-  { matchNumber: 87, date: "2026-07-03", stage: "Round of 32", homeSlotLabel: "Group K winners", awaySlotLabel: "Group D/E/I/J/L third place", venue: "Kansas City Stadium", city: "Kansas City" },
-  { matchNumber: 88, date: "2026-07-03", stage: "Round of 32", homeSlotLabel: "Group D runners-up", awaySlotLabel: "Group G runners-up", venue: "Dallas Stadium", city: "Dallas" },
+  { matchNumber: 73, date: "2026-06-28", stage: "Round of 32", homeSlotLabel: "Group A runners-up", awaySlotLabel: "Group B runners-up", homeTeamId: "south-africa", awayTeamId: "canada", venue: "Los Angeles Stadium", city: "Los Angeles" },
+  { matchNumber: 74, date: "2026-06-29", stage: "Round of 32", homeSlotLabel: "Group E winners", awaySlotLabel: "Group A/B/C/D/F third place", homeTeamId: "germany", awayTeamId: "paraguay", venue: "Boston Stadium", city: "Boston" },
+  { matchNumber: 75, date: "2026-06-29", stage: "Round of 32", homeSlotLabel: "Group F winners", awaySlotLabel: "Group C runners-up", homeTeamId: "netherlands", awayTeamId: "morocco", venue: "Estadio Monterrey", city: "Monterrey" },
+  { matchNumber: 76, date: "2026-06-29", stage: "Round of 32", homeSlotLabel: "Group C winners", awaySlotLabel: "Group F runners-up", homeTeamId: "brazil", awayTeamId: "japan", venue: "Houston Stadium", city: "Houston" },
+  { matchNumber: 77, date: "2026-06-30", stage: "Round of 32", homeSlotLabel: "Group I winners", awaySlotLabel: "Group C/D/F/G/H third place", homeTeamId: "france", awayTeamId: "sweden", venue: "New York New Jersey Stadium", city: "New York / New Jersey" },
+  { matchNumber: 78, date: "2026-06-30", stage: "Round of 32", homeSlotLabel: "Group E runners-up", awaySlotLabel: "Group I runners-up", homeTeamId: "cote-divoire", awayTeamId: "norway", venue: "Dallas Stadium", city: "Dallas" },
+  { matchNumber: 79, date: "2026-06-30", stage: "Round of 32", homeSlotLabel: "Group A winners", awaySlotLabel: "Group C/E/F/H/I third place", homeTeamId: "mexico", awayTeamId: "ecuador", venue: "Mexico City Stadium", city: "Mexico City" },
+  { matchNumber: 80, date: "2026-07-01", stage: "Round of 32", homeSlotLabel: "Group L winners", awaySlotLabel: "Group E/H/I/J/K third place", homeTeamId: "england", awayTeamId: "congo-dr", venue: "Atlanta Stadium", city: "Atlanta" },
+  { matchNumber: 81, date: "2026-07-01", stage: "Round of 32", homeSlotLabel: "Group D winners", awaySlotLabel: "Group B/E/F/I/J third place", homeTeamId: "united-states", awayTeamId: "bosnia-and-herzegovina", venue: "San Francisco Bay Area Stadium", city: "San Francisco Bay Area" },
+  { matchNumber: 82, date: "2026-07-01", stage: "Round of 32", homeSlotLabel: "Group G winners", awaySlotLabel: "Group A/E/H/I/J third place", homeTeamId: "belgium", awayTeamId: "senegal", venue: "Seattle Stadium", city: "Seattle" },
+  { matchNumber: 83, date: "2026-07-02", stage: "Round of 32", homeSlotLabel: "Group K runners-up", awaySlotLabel: "Group L runners-up", homeTeamId: "portugal", awayTeamId: "croatia", venue: "Toronto Stadium", city: "Toronto" },
+  { matchNumber: 84, date: "2026-07-02", stage: "Round of 32", homeSlotLabel: "Group H winners", awaySlotLabel: "Group J runners-up", homeTeamId: "spain", awayTeamId: "austria", venue: "Los Angeles Stadium", city: "Los Angeles" },
+  { matchNumber: 85, date: "2026-07-02", stage: "Round of 32", homeSlotLabel: "Group B winners", awaySlotLabel: "Group E/F/G/I/J third place", homeTeamId: "switzerland", awayTeamId: "algeria", venue: "BC Place Vancouver", city: "Vancouver" },
+  { matchNumber: 86, date: "2026-07-03", stage: "Round of 32", homeSlotLabel: "Group J winners", awaySlotLabel: "Group H runners-up", homeTeamId: "argentina", awayTeamId: "cabo-verde", venue: "Miami Stadium", city: "Miami" },
+  { matchNumber: 87, date: "2026-07-03", stage: "Round of 32", homeSlotLabel: "Group K winners", awaySlotLabel: "Group D/E/I/J/L third place", homeTeamId: "colombia", awayTeamId: "ghana", venue: "Kansas City Stadium", city: "Kansas City" },
+  { matchNumber: 88, date: "2026-07-03", stage: "Round of 32", homeSlotLabel: "Group D runners-up", awaySlotLabel: "Group G runners-up", homeTeamId: "australia", awayTeamId: "egypt", venue: "Dallas Stadium", city: "Dallas" },
   { matchNumber: 89, date: "2026-07-04", stage: "Round of 16", homeSlotLabel: "Winner match 74", awaySlotLabel: "Winner match 77", venue: "Philadelphia Stadium", city: "Philadelphia" },
   { matchNumber: 90, date: "2026-07-04", stage: "Round of 16", homeSlotLabel: "Winner match 73", awaySlotLabel: "Winner match 75", venue: "Houston Stadium", city: "Houston" },
   { matchNumber: 91, date: "2026-07-05", stage: "Round of 16", homeSlotLabel: "Winner match 76", awaySlotLabel: "Winner match 78", venue: "New York New Jersey Stadium", city: "New York / New Jersey" },
@@ -362,6 +364,8 @@ function knockoutFixtureToMatch(fixture: KnockoutFixtureSeed): Match {
     kickoff: fixtureKickoff(fixture.date, fixture.matchNumber),
     venue: fixture.venue,
     city: fixture.city,
+    homeTeamId: fixture.homeTeamId,
+    awayTeamId: fixture.awayTeamId,
     homeSlotLabel: fixture.homeSlotLabel,
     awaySlotLabel: fixture.awaySlotLabel,
   };
